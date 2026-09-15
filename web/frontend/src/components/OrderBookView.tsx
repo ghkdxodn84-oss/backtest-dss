@@ -16,7 +16,7 @@ function subset(table: TablePayload, predicate: (row: Record<string, CellValue>)
 
 function OrderColumn({ title, tone, table }: { title: string; tone: "sell" | "buy"; table: TablePayload }) {
   const total = table.rows.reduce((sum, row) => sum + (typeof row["수량"] === "number" ? row["수량"] : 0), 0);
-  const columns = ["구분", "비고", "주문가", "수량"].filter((column) => table.columns.includes(column));
+  const columns = ["구분", "주문가", "수량", "비고"].filter((column) => table.columns.includes(column));
   return (
     <section className="order-column">
       <header><strong className={tone}>{title}</strong><span>{table.rows.length}건 · 합계 {total.toLocaleString()}주</span></header>

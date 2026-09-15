@@ -140,12 +140,17 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 1px s
   border-bottom: 1px solid var(--border);
   background: rgba(18, 18, 18, .98);
   overflow-x: auto;
+  scrollbar-width: none;
 }
+.strategy-strip::-webkit-scrollbar { display: none; }
 .strategy-mode, .strategy-cell { padding: 10px 18px; display: flex; align-items: center; gap: 9px; border-right: 1px solid var(--border); white-space: nowrap; }
 .strategy-mode span, .strategy-cell span { color: var(--faint); font: 700 11px/1 var(--mono); letter-spacing: .12em; }
 .strategy-mode strong { color: var(--lime); font: 700 15px/1 var(--mono); letter-spacing: .06em; }
 .strategy-cell strong { font: 700 13px/1 var(--mono); }
-.strategy-edit { margin-left: auto; padding: 0 18px; border: 0; border-left: 1px solid var(--border); background: transparent; color: var(--muted); font: 700 11px/1 var(--mono); white-space: nowrap; cursor: pointer; }
+/* 스트립이 가로 스크롤일 때도 EDIT 버튼이 항상 화면 안에 붙어 있도록 sticky */
+.strategy-edit { position: sticky; right: 0; margin-left: auto; padding: 0 18px; border: 0; border-left: 1px solid var(--border); background: #121212; color: var(--muted); font: 700 11px/1 var(--mono); white-space: nowrap; cursor: pointer; }
+/* 가려진 셀 위로 페이드를 깔아 옆으로 스크롤 가능함을 표현 (오버플로우 없으면 배경색과 같아 안 보임) */
+.strategy-edit::before { content: ""; position: absolute; top: 0; bottom: 0; left: -32px; width: 32px; background: linear-gradient(90deg, rgba(18, 18, 18, 0), rgba(18, 18, 18, .96)); pointer-events: none; }
 .strategy-edit:hover { color: var(--lime); background: var(--raised); }
 
 .page-body {
@@ -234,7 +239,7 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 1px s
 .section-heading .eyebrow { display: none; }
 .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border); border-top: 1px solid var(--border); }
 .panel-header + .summary-grid { border-top: 0; }
-.summary-metric { min-height: 82px; padding: 16px 20px; display: flex; flex-direction: column; gap: 7px; background: var(--bg); }
+.summary-metric { min-width: 0; min-height: 82px; padding: 16px 20px; display: flex; flex-direction: column; gap: 7px; background: var(--bg); }
 .summary-metric span { color: var(--faint); font: 700 11px/1 var(--mono); letter-spacing: .12em; }
 .summary-metric strong { font: 700 20px/1 var(--mono); letter-spacing: -.02em; }
 .summary-metric strong.lime { color: var(--lime); }
@@ -248,17 +253,19 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 1px s
 .chart-legend i { width: 14px; height: 2px; }
 .lime-dot { background: var(--lime); }
 .magenta-dot { background: var(--faint); }
-.chart-wrap { position: relative; padding: 14px 18px 4px; overflow: hidden; background: var(--bg); }
-.chart-wrap svg { display: block; width: 100%; height: auto; min-height: 280px; }
+.chart-wrap { padding: 14px 18px 4px; overflow: hidden; background: var(--bg); }
+.chart-plot { position: relative; }
+/* preserveAspectRatio="none" + 고정 높이: 좁은 화면에서도 레터박스 없이 꽉 찬다 */
+.chart-wrap svg { display: block; width: 100%; height: 280px; touch-action: pan-y; }
+.chart-dot { position: absolute; width: 8px; height: 8px; border: 2px solid var(--lime); background: var(--bg); transform: translate(-50%, -50%); pointer-events: none; }
+.chart-dot.price { border-color: var(--muted); }
+.chart-axis { display: flex; justify-content: space-between; padding: 8px 2px 10px; color: var(--faint); font: 10px var(--mono); letter-spacing: .06em; }
 .grid-line { stroke: #222; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .mode-band { fill: var(--lime); opacity: .08; }
 .equity-line, .price-line { fill: none; vector-effect: non-scaling-stroke; }
 .equity-line { stroke: var(--lime); stroke-width: 2; }
 .price-line { stroke: var(--faint); stroke-width: 1.2; opacity: .9; }
 .hover-line { stroke: #777; stroke-width: 1; stroke-dasharray: 3 3; vector-effect: non-scaling-stroke; }
-.equity-point { fill: var(--bg); stroke: var(--lime); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.price-point { fill: var(--bg); stroke: var(--muted); stroke-width: 2; vector-effect: non-scaling-stroke; }
-.axis-label { fill: var(--faint); font: 10px var(--mono); }
 .chart-tooltip { position: absolute; top: 24px; z-index: 2; min-width: 136px; padding: 10px 12px; border: 1px solid var(--border-strong); background: rgba(10,10,10,.95); transform: translateX(-50%); pointer-events: none; font-family: var(--mono); }
 .chart-tooltip span, .chart-tooltip em { display: block; color: var(--faint); font-size: 9px; font-style: normal; }
 .chart-tooltip strong { display: block; margin: 5px 0; color: var(--lime); font-size: 15px; }
@@ -293,7 +300,7 @@ td.tone-muted { color: var(--muted); }
 .current-mode-card p b { color: #f5f5f5; font-family: var(--mono); }
 .rsi-scale { position: relative; margin-top: auto; padding-top: 20px; display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
 .rsi-scale::before { content: ""; position: absolute; top: 9px; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #333 0 50%, var(--lime) 50% 100%); }
-.rsi-scale i { position: absolute; top: 4px; width: 2px; height: 13px; background: #f5f5f5; }
+.rsi-scale i { position: absolute; top: 4px; width: 2px; height: 13px; background: #f5f5f5; transform: translateX(-50%); }
 .snapshot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; border: 1px solid var(--border); background: var(--border); }
 .snapshot-grid article { min-height: 120px; padding: 18px; display: flex; flex-direction: column; justify-content: space-between; background: var(--bg); }
 .snapshot-grid span, .snapshot-grid small { color: var(--faint); font: 10px/1.2 var(--mono); letter-spacing: .12em; }
@@ -301,14 +308,16 @@ td.tone-muted { color: var(--muted); }
 
 .order-sheet-panel { border-color: var(--lime); }
 .order-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); }
+.order-column { min-width: 0; }
 .order-column + .order-column { border-left: 1px solid var(--border); }
 .order-column > header { min-height: 46px; padding: 12px 18px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
 .order-column > header strong { font: 700 11px/1 var(--mono); letter-spacing: .16em; }
-.order-column > header strong.sell, .order-table td.sell { color: var(--red); }
-.order-column > header strong.buy, .order-table td.buy { color: var(--blue); }
+.order-column > header strong.sell, .order-table td.sell { color: var(--blue); }
+.order-column > header strong.buy, .order-table td.buy { color: var(--red); }
 .order-column > header span { margin-left: auto; color: var(--faint); font: 11px/1 var(--mono); }
 .order-table-wrap { max-height: 420px; overflow: auto; }
-.order-table th:nth-last-child(-n+2), .order-table td:nth-last-child(-n+2) { text-align: right; }
+.order-table th:nth-child(2), .order-table td:nth-child(2),
+.order-table th:nth-child(3), .order-table td:nth-child(3) { text-align: right; }
 .order-sheet-panel > footer { padding: 14px 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; line-height: 1.55; }
 .order-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 24px; align-items: start; }
 .detail-card { min-width: 0; }
@@ -349,16 +358,33 @@ td.tone-muted { color: var(--muted); }
   .local-status { width: 100%; }
   .local-settings-fields { grid-template-columns: 1fr; }
   .settings-card-grid { grid-template-columns: 1fr; }
-  .summary-grid { grid-template-columns: 1fr 1fr; }
+  .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .summary-metric { min-height: 74px; padding: 14px; }
-  .summary-metric strong { font-size: 17px; }
+  .summary-metric strong { font-size: 17px; overflow-wrap: anywhere; }
+  .snapshot-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .snapshot-grid strong { font-size: 20px; overflow-wrap: anywhere; }
   .panel-header, .section-heading { padding: 14px 16px; align-items: flex-start; flex-wrap: wrap; }
+  .panel-header small { white-space: normal; }
   .chart-legend, .table-actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
   .chart-wrap { padding: 6px; }
-  .chart-wrap svg { min-height: 230px; }
-  .order-overview-grid, .order-columns, .order-detail-grid { grid-template-columns: 1fr; gap: 16px; }
+  .chart-wrap svg { height: 220px; }
+  .table-scroll { max-height: 300px; }
+  .order-table-wrap { max-height: 320px; }
+  /* 1fr은 minmax(auto,1fr)라 nowrap 테이블의 min-content가 트랙을 넓혀 페이지 가로 스크롤을 만든다 */
+  .order-overview-grid, .order-columns, .order-detail-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
   .order-column + .order-column { border-left: 0; border-top: 1px solid var(--border); }
   .current-mode-title strong { font-size: 32px; }
   .footer { align-items: flex-start; flex-direction: column; justify-content: center; }
   .footer span:last-child { margin-left: 0; }
+  /* 16px 미만 입력 필드는 iOS Safari가 포커스 시 페이지를 확대한 채 남겨둔다 */
+  .toolbar-period input, .setting-row input, .setting-select select { font-size: 16px; }
+  .setting-row, .local-settings-fields .setting-row { grid-template-columns: 1fr minmax(140px, 45%); }
+  .table-actions button { height: 40px; }
+  .setting-toggle { min-height: 40px; }
+}
+
+/* 터치 기기: 호버로만 드러나는 버튼 테두리·색을 상시 표시 */
+@media (hover: none) {
+  .table-actions button { border-color: var(--border-strong); }
+  .strategy-edit { color: var(--lime); }
 }

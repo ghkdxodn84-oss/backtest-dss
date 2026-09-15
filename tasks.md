@@ -22,6 +22,12 @@
   - 429 심하면 대안: Render free / 집 PC + Cloudflare Tunnel (조사 문서: claude.ai/code/artifact/fe573437-3a8e-4882-a918-c473ea653852)
 
 ## Done
+- [x] 웹 뷰어 모바일 레이아웃 수정 (2026-09-16)
+  - 오더북 페이지 가로 스크롤 제거 (`1fr` → `minmax(0,1fr)` 가드, `.order-column min-width:0`)
+  - 차트 모바일 대응: 레터박스 제거(preserveAspectRatio none + 고정 높이), 축 라벨 HTML 이동, 툴팁 px 클램프, touch-action pan-y
+  - LOC 주문 시트 컬럼 재배치: 구분·주문가·수량·근거 순
+  - iOS 입력 줌 방지(모바일 16px), 전략 스트립 EDIT sticky, 터치 탭 타겟 40px
+  - 검증: 헤드리스 크로미움 390px/320px 전 화면 scrollWidth == viewport 확인
 - [x] yfinance 의존 제거: 일봉 데이터를 git으로 관리 (2026-09-06)
   - `scripts/update_market_data.py` 증분 다운로드 (7일 겹침 재수집, 3회 재시도)
   - `.github/workflows/update-data.yml` 평일 22:30 UTC cron → data/ 커밋

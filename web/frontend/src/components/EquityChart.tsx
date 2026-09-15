@@ -11,7 +11,8 @@ interface EquityChartProps {
 
 const WIDTH = 1000;
 const HEIGHT = 360;
-const PADDING = { top: 24, right: 28, bottom: 36, left: 34 };
+// bottom은 축 라벨이 svg 밖 HTML로 빠지면서 여백만 남긴다
+const PADDING = { top: 24, right: 28, bottom: 16, left: 34 };
 
 function linePath(values: Array<number | null>, scale: (value: number) => number) {
   let path = "";
@@ -36,6 +37,7 @@ function createScale(values: Array<number | null>, logScale: boolean) {
 export function EquityChart({ points, modeBands, logScale, target }: EquityChartProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
+  const [plotWidth, setPlotWidth] = useState(0);
   const equityValues = useMemo(() => points.map((point) => point.equity), [points]);
   const priceValues = useMemo(() => points.map((point) => point.price), [points]);
   const equityScale = useMemo(() => createScale(equityValues, logScale), [equityValues, logScale]);
@@ -50,8 +52,16 @@ export function EquityChart({ points, modeBands, logScale, target }: EquityChart
     const bounds = svgRef.current?.getBoundingClientRect();
     if (!bounds) return;
     const relative = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width));
+    setPlotWidth(bounds.width);
     setHoverIndex(Math.round(relative * Math.max(points.length - 1, 0)));
   };
+
+  // 툴팁이 좌우 가장자리에서 잘리지 않도록 실측 폭 기준 px로 클램프한다.
+  const hoverFraction = hoverX / WIDTH;
+  const tooltipHalf = 72;
+  const tooltipLeft = plotWidth > 0
+    ? `${Math.min(Math.max(hoverFraction * plotWidth, tooltipHalf), Math.max(plotWidth - tooltipHalf, tooltipHalf))}px`
+    : `${hoverFraction * 100}%`;
 
   return (
     <section className="chart-card">
@@ -67,9 +77,11 @@ export function EquityChart({ points, modeBands, logScale, target }: EquityChart
         </div>
       </header>
       <div className="chart-wrap">
+        <div className="chart-plot">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+          preserveAspectRatio="none"
           role="img"
           aria-label="Equity and target price chart"
           onPointerMove={onPointerMove}
@@ -100,22 +112,28 @@ export function EquityChart({ points, modeBands, logScale, target }: EquityChart
           <path d={linePath(equityValues, equityScale)} className="equity-line" />
           <path d={linePath(priceValues, priceScale)} className="price-line" />
           {hoverPoint && (
-            <>
-              <line x1={hoverX} x2={hoverX} y1={PADDING.top} y2={HEIGHT - PADDING.bottom} className="hover-line" />
-              {hoverPoint.equity != null && <circle cx={hoverX} cy={equityScale(hoverPoint.equity)} r="4" className="equity-point" />}
-              {hoverPoint.price != null && <circle cx={hoverX} cy={priceScale(hoverPoint.price)} r="4" className="price-point" />}
-            </>
+            <line x1={hoverX} x2={hoverX} y1={PADDING.top} y2={HEIGHT - PADDING.bottom} className="hover-line" />
           )}
-          <text x={PADDING.left} y={HEIGHT - 10} className="axis-label">{points[0]?.date.slice(0, 10)}</text>
-          <text x={WIDTH - PADDING.right} y={HEIGHT - 10} textAnchor="end" className="axis-label">{points.at(-1)?.date.slice(0, 10)}</text>
         </svg>
+        {/* preserveAspectRatio="none"에서 svg circle은 타원으로 찌그러지므로 HTML 도트로 표시 */}
+        {hoverPoint?.equity != null && (
+          <i className="chart-dot equity" style={{ left: `${hoverFraction * 100}%`, top: `${(equityScale(hoverPoint.equity) / HEIGHT) * 100}%` }} />
+        )}
+        {hoverPoint?.price != null && (
+          <i className="chart-dot price" style={{ left: `${hoverFraction * 100}%`, top: `${(priceScale(hoverPoint.price) / HEIGHT) * 100}%` }} />
+        )}
         {hoverPoint && (
-          <div className="chart-tooltip" style={{ left: `${Math.min(82, Math.max(4, (hoverX / WIDTH) * 100))}%` }}>
+          <div className="chart-tooltip" style={{ left: tooltipLeft }}>
             <span>{hoverPoint.date.slice(0, 10)}</span>
             <strong>${hoverPoint.equity?.toLocaleString("en-US", { maximumFractionDigits: 0 }) ?? "—"}</strong>
             <em>{target} ${hoverPoint.price?.toFixed(2) ?? "—"}</em>
           </div>
         )}
+        </div>
+        <div className="chart-axis">
+          <span>{points[0]?.date.slice(0, 10)}</span>
+          <span>{points.at(-1)?.date.slice(0, 10)}</span>
+        </div>
       </div>
     </section>
   );
