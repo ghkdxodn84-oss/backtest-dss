@@ -1,3 +1,4 @@
+import { copyText } from "../clipboard";
 import type { CellValue, TablePayload } from "../types";
 
 interface DataTableProps {
@@ -7,6 +8,8 @@ interface DataTableProps {
   filename: string;
   limit?: number;
   embedded?: boolean;
+  /** 지정하면 행 클릭 시 해당 컬럼의 숫자 값을 클립보드에 복사 */
+  copyColumn?: string;
 }
 
 function cellText(value: CellValue) {
@@ -39,8 +42,15 @@ function valueTone(value: CellValue) {
   return "";
 }
 
-export function DataTable({ title, eyebrow, table, filename, limit = 100, embedded = false }: DataTableProps) {
+export function DataTable({ title, eyebrow, table, filename, limit = 100, embedded = false, copyColumn }: DataTableProps) {
   const visibleRows = limit > 0 ? table.rows.slice(-limit).reverse() : table.rows;
+
+  const copyRowValue = (row: Record<string, CellValue>) => {
+    if (!copyColumn) return;
+    const value = row[copyColumn];
+    if (typeof value !== "number") return;
+    copyText(value.toFixed(2));
+  };
 
   return (
     <section className={`table-card${embedded ? " embedded" : ""}`}>
@@ -62,7 +72,12 @@ export function DataTable({ title, eyebrow, table, filename, limit = 100, embedd
             </thead>
             <tbody>
               {visibleRows.map((row, rowIndex) => (
-                <tr key={rowIndex}>
+                <tr
+                  key={rowIndex}
+                  className={copyColumn ? "copyable" : ""}
+                  title={copyColumn ? `클릭하면 ${copyColumn} 복사` : undefined}
+                  onClick={() => copyRowValue(row)}
+                >
                   {table.columns.map((column) => <td key={column} className={valueTone(row[column])}>{cellText(row[column])}</td>)}
                 </tr>
               ))}

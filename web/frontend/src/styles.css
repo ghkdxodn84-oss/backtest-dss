@@ -281,6 +281,7 @@ table { width: 100%; border-collapse: collapse; white-space: nowrap; font: 12px/
 th { position: sticky; top: 0; z-index: 2; padding: 10px 12px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border-strong); background: #0b0b0b; color: var(--muted); font-size: 10px; font-weight: 400; text-align: left; }
 td { padding: 10px 12px; border-right: 1px solid var(--border); border-bottom: 1px solid #1a1a1a; color: #c9c9c9; }
 tbody tr:hover td { background: rgba(212,255,0,.035); color: #fff; }
+tr.copyable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 td.tone-positive { color: var(--red); }
 td.tone-negative { color: var(--blue); }
 td.tone-muted { color: var(--muted); }

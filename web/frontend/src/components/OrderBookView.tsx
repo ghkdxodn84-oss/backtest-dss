@@ -1,3 +1,4 @@
+import { copyText } from "../clipboard";
 import type { BacktestRequest, CellValue, OrderBookPayload, TablePayload, ViewerResult } from "../types";
 import { DataTable } from "./DataTable";
 import { EquityChart } from "./EquityChart";
@@ -17,6 +18,13 @@ function subset(table: TablePayload, predicate: (row: Record<string, CellValue>)
 function OrderColumn({ title, tone, table }: { title: string; tone: "sell" | "buy"; table: TablePayload }) {
   const total = table.rows.reduce((sum, row) => sum + (typeof row["수량"] === "number" ? row["수량"] : 0), 0);
   const columns = ["구분", "주문가", "수량", "비고"].filter((column) => table.columns.includes(column));
+
+  const copyPrice = (row: Record<string, CellValue>) => {
+    const price = row["주문가"];
+    if (typeof price !== "number") return;
+    copyText(price.toFixed(2));
+  };
+
   return (
     <section className="order-column">
       <header><strong className={tone}>{title}</strong><span>{table.rows.length}건 · 합계 {total.toLocaleString()}주</span></header>
@@ -25,7 +33,12 @@ function OrderColumn({ title, tone, table }: { title: string; tone: "sell" | "bu
           <table className="order-table">
             <thead><tr>{columns.map((column) => <th key={column}>{column === "비고" ? "근거" : column}</th>)}</tr></thead>
             <tbody>{table.rows.map((row, index) => (
-              <tr key={index}>{columns.map((column) => <td key={column} className={column === "구분" ? tone : ""}>{valueText(row[column], column)}</td>)}</tr>
+              <tr
+                key={index}
+                className="copyable"
+                title="클릭하면 주문가 복사"
+                onClick={() => copyPrice(row)}
+              >{columns.map((column) => <td key={column} className={column === "구분" ? tone : ""}>{valueText(row[column], column)}</td>)}</tr>
             ))}</tbody>
           </table>
         ) : <div className="compact-empty">예정된 주문이 없습니다.</div>}
@@ -80,7 +93,7 @@ export function OrderBookView({
         </div>
         <div className="detail-card">
           <header className="panel-header"><span className="eyebrow">손절 주문 // STOP LOSS</span><small>{orderBook.stop_loss_orders.rows.length}건</small></header>
-          {orderBook.stop_loss_orders.rows.length ? <DataTable title="손절 주문" eyebrow="SL" table={orderBook.stop_loss_orders} filename={`dongpa_stop_loss_${result.meta.target_ticker}.csv`} limit={0} embedded /> : <div className="disabled-state"><strong>손절 비활성 // SL = 0.0%</strong><p>손절값을 설정하면 트랜치별 손절가가 여기에 표시됩니다.</p></div>}
+          {orderBook.stop_loss_orders.rows.length ? <DataTable title="손절 주문" eyebrow="SL" table={orderBook.stop_loss_orders} filename={`dongpa_stop_loss_${result.meta.target_ticker}.csv`} limit={0} embedded copyColumn="주문가" /> : <div className="disabled-state"><strong>손절 비활성 // SL = 0.0%</strong><p>손절값을 설정하면 트랜치별 손절가가 여기에 표시됩니다.</p></div>}
         </div>
       </section>
 
