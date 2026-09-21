@@ -22,6 +22,10 @@
   - 429 심하면 대안: Render free / 집 PC + Cloudflare Tunnel (조사 문서: claude.ai/code/artifact/fe573437-3a8e-4882-a918-c473ea653852)
 
 ## Done
+- [x] 웹 뷰어 파비콘 적용 (2026-09-21)
+  - 라임 D 안에 물결 한 줄(시안 I) — 시안 비교: claude.ai/artifact/XbhjeKbnC5rTzksfiVPmcN
+  - `web/frontend/public/` favicon.svg + favicon-32.png + apple-touch-icon.png, index.html 링크
+  - PNG는 playwright 캐시의 headless_shell로 렌더 (cairosvg/rsvg 없음)
 - [x] 웹 뷰어 모바일 레이아웃 수정 (2026-09-16)
   - 오더북 페이지 가로 스크롤 제거 (`1fr` → `minmax(0,1fr)` 가드, `.order-column min-width:0`)
   - 차트 모바일 대응: 레터박스 제거(preserveAspectRatio none + 고정 높이), 축 라벨 HTML 이동, 툴팁 px 클램프, touch-action pan-y
