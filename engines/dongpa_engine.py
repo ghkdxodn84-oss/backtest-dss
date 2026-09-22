@@ -149,6 +149,16 @@ def shares_to_float(value, allow_fractional: bool = False) -> float | None:
         return float(int(value))
 
 
+def shares_text(value, allow_fractional: bool = False) -> str:
+    """표시용 수량 문자열. 정수 수량은 소수점 없이(23), 소수 수량은 필요한 자리까지만(23.5)"""
+    number = shares_to_float(value, allow_fractional)
+    if number is None:
+        return "—"
+    if float(number).is_integer():
+        return f"{int(number)}"
+    return f"{number:.8f}".rstrip("0").rstrip(".")
+
+
 def money_to_float(value) -> float | None:
     if value is None:
         return None
@@ -851,7 +861,7 @@ def run_backtest(
         if planned_buy_qty > Decimal("0") and buy_limit is not None:
             buy_price = money_to_float(buy_limit)
             buy_budget = money_to_float(planned_buy_order_value)
-            qty_display = shares_to_float(planned_buy_qty, params.allow_fractional_shares)
+            qty_display = shares_text(planned_buy_qty, params.allow_fractional_shares)
             buy_summary = f"매수 {qty_display}주 @ {buy_price:.2f} (예산 ${buy_budget:,.2f})"
 
         sell_summary = "TP대기 없음"
@@ -861,7 +871,7 @@ def run_backtest(
                 tp_price = money(lot['tp'])
                 tp_groups[tp_price] = tp_groups.get(tp_price, Decimal("0")) + lot['qty']
             sell_entries = [
-                f"{shares_to_float(qty, params.allow_fractional_shares)}주 @ {money_to_float(tp):.2f}"
+                f"{shares_text(qty, params.allow_fractional_shares)}주 @ {money_to_float(tp):.2f}"
                 for tp, qty in sorted(tp_groups.items(), key=lambda item: float(item[0]))
             ]
             sell_summary = "TP대기 " + ", ".join(sell_entries)
@@ -900,13 +910,13 @@ def run_backtest(
                 net_buy_amt = money(max(Decimal("0"), net_buy_amt - offset_amt))
                 net_sell_amt = money(max(Decimal("0"), net_sell_amt - offset_amt))
                 netting_applied = True
-                raw_buy_display = shares_to_float(raw_buy_qty, params.allow_fractional_shares)
-                raw_sell_display = shares_to_float(raw_sell_qty, params.allow_fractional_shares)
+                raw_buy_display = shares_text(raw_buy_qty, params.allow_fractional_shares)
+                raw_sell_display = shares_text(raw_sell_qty, params.allow_fractional_shares)
                 if net_buy_qty > Decimal("0"):
-                    net_buy_display = shares_to_float(net_buy_qty, params.allow_fractional_shares)
+                    net_buy_display = shares_text(net_buy_qty, params.allow_fractional_shares)
                     netting_detail = f"매수 {raw_buy_display}주, 매도 {raw_sell_display}주 → 순매수 {net_buy_display}주"
                 elif net_sell_qty > Decimal("0"):
-                    net_sell_display = shares_to_float(net_sell_qty, params.allow_fractional_shares)
+                    net_sell_display = shares_text(net_sell_qty, params.allow_fractional_shares)
                     netting_detail = f"매수 {raw_buy_display}주, 매도 {raw_sell_display}주 → 순매도 {net_sell_display}주"
                 else:
                     netting_detail = f"매수 {raw_buy_display}주, 매도 {raw_sell_display}주 → 상쇄"

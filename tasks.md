@@ -13,7 +13,12 @@
     - 성과 지표 7개 타일만 (Final Equity·Sharpe·변동성·MDD·누적수익률·단순보유·CAGR). 실현 지표(거래횟수·이익금 등)는 사용자 요청으로 숫자만 유지
     - Sharpe·변동성은 60거래일 롤링, CAGR은 20일 이후부터. QQQ 단순보유는 시계열이 없어 스파크라인 없음
     - 타일 위에서 스크럽하면 그 날짜의 값·날짜가 큰 숫자 자리에 표시
-  - 이후 후보: 4. 일별 손익·모드 캘린더 히트맵, 5. 캔들+RSI 패널(API에 OHLC·RSI 시계열 추가 필요)
+  - [x] 4. 일일 거래 요약 테이블 (2026-09-23): `DailyLog.tsx`. Spectrum audit-log 블록 참고. 필터 칩(공세/안전 · 상승/하락, 건수 표시, 그룹 내 토글), 날짜·예약 검색, 헤더 클릭 정렬, 10행 페이지네이션, 행 클릭 시 나머지 필드(매수조건·주문가·ID·누적손익·트랜치 예산·퉁치기 상세·다음날 예약) 상세 펼침
+    - 표 컬럼은 11개로 큐레이션(거래일자·모드·종가·등락률·매수·매도·실현손익·보유·현금·EQUITY·낙폭), 전체 33열은 CSV로. 1050px 미만 낙폭, 760px 미만 보유·현금 숨김. 퉁치기 적용일은 날짜 옆 "퉁" 배지
+    - CSV 유틸을 `src/csv.ts`로 분리 (DataTable과 공유). `table-layout: fixed` + 열별 px 폭으로 페이지를 넘겨도 열 폭 고정
+    - 엔진: `shares_text()` 추가해 퉁치기 상세·예약요약의 "23.0주" → "23주" (dongpa_engine.py)
+    - 전역 `font-synthesis: none`: 주아체(BM JUA)는 Regular 단일 굵기임을 폰트 파일로 확인, 합성 볼드가 획을 뭉개 가독성을 해쳐 끔
+  - 캘린더 히트맵·캔들+RSI 패널은 사용자 결정으로 보류 (2026-09-23)
 - [ ] 데이터 자동 갱신 방법 결정: GitHub Actions 러너(Azure IP)가 Yahoo에 차단됨
   - 후보 A: 집 PC 스케줄러(Windows Task Scheduler → WSL)에서 fetch + push
   - 후보 B: Tiingo 무료 API 키 발급 후 Actions에서 Tiingo로 fetch

@@ -1,4 +1,5 @@
 import { copyText } from "../clipboard";
+import { cellText, downloadCsv } from "../csv";
 import type { CellValue, TablePayload } from "../types";
 
 interface DataTableProps {
@@ -10,28 +11,6 @@ interface DataTableProps {
   embedded?: boolean;
   /** 지정하면 행 클릭 시 해당 컬럼의 숫자 값을 클립보드에 복사 */
   copyColumn?: string;
-}
-
-function cellText(value: CellValue) {
-  if (value == null || value === "") return "—";
-  if (typeof value === "number") return value.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
-  if (typeof value === "boolean") return value ? "ON" : "OFF";
-  return String(value);
-}
-
-function downloadCsv(table: TablePayload, filename: string) {
-  const escape = (value: CellValue) => `"${cellText(value).replaceAll('"', '""')}"`;
-  const lines = [
-    table.columns.map((column) => escape(column)).join(","),
-    ...table.rows.map((row) => table.columns.map((column) => escape(row[column])).join(",")),
-  ];
-  const blob = new Blob(["\ufeff", lines.join("\n")], { type: "text/csv;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.click();
-  URL.revokeObjectURL(url);
 }
 
 function valueTone(value: CellValue) {

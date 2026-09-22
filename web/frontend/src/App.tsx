@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { getDefaults, runViewer } from "./api/client";
+import { DailyLog } from "./components/DailyLog";
 import { DataTable } from "./components/DataTable";
 import { EquityChart } from "./components/EquityChart";
 import { MetricGrid } from "./components/MetricGrid";
@@ -65,7 +66,7 @@ function BacktestResult({ result }: { result: ViewerResult }) {
     <div className="result-stack">
       <MetricGrid result={result} period={period} />
       <EquityChart points={result.equity} modeBands={result.mode_bands} logScale={result.meta.log_scale} target={result.meta.target_ticker} />
-      <DataTable title="일일 거래 요약" eyebrow="DAILY LOG" table={result.journal} filename={`dongpa_daily_${result.meta.target_ticker}.csv`} limit={8} />
+      <DailyLog table={result.journal} filename={`dongpa_daily_${result.meta.target_ticker}.csv`} />
       <DataTable title="트랜치별 매수·매도 기록" eyebrow="TRANCHES" table={result.trade_log} filename={`dongpa_trades_${result.meta.target_ticker}.csv`} limit={9} />
     </div>
   );
