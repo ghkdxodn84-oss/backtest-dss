@@ -63,7 +63,7 @@ function BacktestResult({ result }: { result: ViewerResult }) {
   const period = `${result.meta.start_date} – ${result.meta.end_date}`;
   return (
     <div className="result-stack">
-      <MetricGrid summary={result.summary} realized={result.realized_metrics} target={result.meta.target_ticker} momentum={result.meta.momentum_ticker} period={period} />
+      <MetricGrid result={result} period={period} />
       <EquityChart points={result.equity} modeBands={result.mode_bands} logScale={result.meta.log_scale} target={result.meta.target_ticker} />
       <DataTable title="일일 거래 요약" eyebrow="DAILY LOG" table={result.journal} filename={`dongpa_daily_${result.meta.target_ticker}.csv`} limit={8} />
       <DataTable title="트랜치별 매수·매도 기록" eyebrow="TRANCHES" table={result.trade_log} filename={`dongpa_trades_${result.meta.target_ticker}.csv`} limit={9} />

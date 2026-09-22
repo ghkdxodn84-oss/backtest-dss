@@ -1,12 +1,24 @@
+import { useMemo, useState } from "react";
+
+import { buildMetricSeries, type MetricSeries } from "../chart/metricSeries";
+import type { ViewerResult } from "../types";
+import { Sparkline } from "./Sparkline";
+
 interface MetricGridProps {
-  summary: Record<string, number | null>;
-  realized: Record<string, number | null> | null;
-  target: string;
-  momentum: string;
+  result: ViewerResult;
   period: string;
 }
 
 type MetricStyle = "money" | "ratio" | "percent" | "number" | "days" | "count";
+type Tone = "lime" | "negative" | "muted";
+
+interface MetricItem {
+  label: string;
+  value: number | null | undefined;
+  style: MetricStyle;
+  tone?: Tone;
+  series?: MetricSeries;
+}
 
 function formatNumber(value: number | null | undefined, style: MetricStyle) {
   if (value == null || !Number.isFinite(value)) return "—";
@@ -18,40 +30,60 @@ function formatNumber(value: number | null | undefined, style: MetricStyle) {
   return value.toFixed(2);
 }
 
-function Metrics({ items }: { items: ReadonlyArray<readonly [string, number | null | undefined, MetricStyle, string?]> }) {
+function Tile({ item }: { item: MetricItem }) {
+  const [scrub, setScrub] = useState<number | null>(null);
+  const series = item.series;
+  const scrubbing = scrub != null && series != null;
+  const shown = scrubbing ? series.values[scrub] : item.value;
+  const tone = item.tone ?? "muted";
   return (
-    <div className="summary-grid">
-      {items.map(([label, value, style, tone]) => (
-        <div className="summary-metric" key={label}>
-          <span>{label}</span>
-          <strong className={tone ?? ""}>{formatNumber(value, style)}</strong>
-        </div>
-      ))}
+    <div className={`summary-metric${scrubbing ? " scrubbing" : ""}`}>
+      <span>{item.label}</span>
+      <strong className={tone === "muted" ? "" : tone}>{formatNumber(shown, item.style)}</strong>
+      {series ? (
+        <>
+          <Sparkline values={series.values} tone={tone} activeIndex={scrub} onScrub={setScrub} />
+          <small>{scrubbing ? series.dates[scrub] : " "}</small>
+        </>
+      ) : null}
     </div>
   );
 }
 
-export function MetricGrid({ summary, realized, target, momentum, period }: MetricGridProps) {
-  const performance = [
-    ["FINAL EQUITY", summary["Final Equity"], "money", "lime"],
-    ["SHARPE / RF 0", summary["Sharpe (rf=0)"], "number"],
-    ["VOLATILITY / ANN", summary["Volatility (ann)"], "ratio"],
-    ["MAX DRAWDOWN", summary["Max Drawdown"], "ratio", "negative"],
-    ["누적 수익률", summary["Strategy Return"], "percent", "lime"],
-    [`${target} 단순보유`, summary["Target Hold Return"], "percent"],
-    [`${momentum} 단순보유`, summary["Momentum Hold Return"], "percent"],
-    ["CAGR", summary.CAGR, "ratio"],
-  ] as const;
-  const realizedItems = [
-    ["거래횟수", realized?.trade_count, "count"],
-    ["MOC 횟수", realized?.moc_count, "count"],
-    ["평균 보유일", realized?.avg_hold_days, "days"],
-    ["이익금", realized?.net_profit, "money", "lime"],
-    ["평균 이익률", realized?.avg_gain_pct, "percent"],
-    ["평균 손해률", realized?.avg_loss_pct, "percent", "negative"],
-    ["평균 실현이익", realized?.avg_gain, "money"],
-    ["평균 실현손해", realized?.avg_loss, "money", "negative"],
-  ] as const;
+function Metrics({ items }: { items: MetricItem[] }) {
+  return (
+    <div className="summary-grid">
+      {items.map((item) => <Tile key={item.label} item={item} />)}
+    </div>
+  );
+}
+
+export function MetricGrid({ result, period }: MetricGridProps) {
+  const { summary, realized_metrics: realized } = result;
+  const target = result.meta.target_ticker;
+  const momentum = result.meta.momentum_ticker;
+  const s = useMemo(() => buildMetricSeries(result.equity), [result.equity]);
+
+  const performance: MetricItem[] = [
+    { label: "FINAL EQUITY", value: summary["Final Equity"], style: "money", tone: "lime", series: s.finalEquity },
+    { label: "SHARPE / RF 0", value: summary["Sharpe (rf=0)"], style: "number", series: s.sharpe },
+    { label: "VOLATILITY / ANN", value: summary["Volatility (ann)"], style: "ratio", series: s.volatility },
+    { label: "MAX DRAWDOWN", value: summary["Max Drawdown"], style: "ratio", tone: "negative", series: s.drawdown },
+    { label: "누적 수익률", value: summary["Strategy Return"], style: "percent", tone: "lime", series: s.strategyReturn },
+    { label: `${target} 단순보유`, value: summary["Target Hold Return"], style: "percent", series: s.targetHold },
+    { label: `${momentum} 단순보유`, value: summary["Momentum Hold Return"], style: "percent" },
+    { label: "CAGR", value: summary.CAGR, style: "ratio", series: s.cagr },
+  ];
+  const realizedItems: MetricItem[] = [
+    { label: "거래횟수", value: realized?.trade_count, style: "count" },
+    { label: "MOC 횟수", value: realized?.moc_count, style: "count" },
+    { label: "평균 보유일", value: realized?.avg_hold_days, style: "days" },
+    { label: "이익금", value: realized?.net_profit, style: "money", tone: "lime" },
+    { label: "평균 이익률", value: realized?.avg_gain_pct, style: "percent" },
+    { label: "평균 손해률", value: realized?.avg_loss_pct, style: "percent", tone: "negative" },
+    { label: "평균 실현이익", value: realized?.avg_gain, style: "money" },
+    { label: "평균 실현손해", value: realized?.avg_loss, style: "money", tone: "negative" },
+  ];
 
   return (
     <section className="summary-panel">

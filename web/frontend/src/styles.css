@@ -240,10 +240,22 @@ button:focus-visible, input:focus-visible, select:focus-visible { outline: 1px s
 .summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; background: var(--border); border-top: 1px solid var(--border); }
 .panel-header + .summary-grid { border-top: 0; }
 .summary-metric { min-width: 0; min-height: 82px; padding: 16px 20px; display: flex; flex-direction: column; gap: 7px; background: var(--bg); }
+.summary-metric strong { font-variant-numeric: tabular-nums; }
 .summary-metric span { color: var(--faint); font: 700 11px/1 var(--mono); letter-spacing: .12em; }
 .summary-metric strong { font: 700 20px/1 var(--mono); letter-spacing: -.02em; }
 .summary-metric strong.lime { color: var(--lime); }
 .summary-metric strong.negative { color: var(--magenta); }
+.summary-metric small { color: var(--faint); font: 10px/1 var(--mono); letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+.summary-metric.scrubbing strong { color: #f5f5f5; }
+.sparkline { position: relative; width: 100%; height: 30px; margin-top: 2px; }
+.sparkline.empty { height: 30px; }
+.sparkline-svg { display: block; width: 100%; height: 100%; overflow: visible; touch-action: pan-y; }
+.sparkline-svg.lime { color: var(--lime); }
+.sparkline-svg.negative { color: var(--magenta); }
+.sparkline-svg.muted { color: var(--muted); }
+.sparkline-line { fill: none; stroke: currentColor; stroke-width: 1.4; vector-effect: non-scaling-stroke; }
+.sparkline-cursor { stroke: #f5f5f5; stroke-opacity: .4; stroke-width: 1; stroke-dasharray: 2 2; vector-effect: non-scaling-stroke; }
+.sparkline-dot { position: absolute; width: 7px; height: 7px; border: 1.5px solid #f5f5f5; background: var(--bg); transform: translate(-50%, -50%); pointer-events: none; }
 .subsection-label { padding: 14px 24px; border-top: 1px solid var(--border); color: var(--muted); font: 700 11px/1 var(--mono); letter-spacing: .16em; }
 
 .chart-card { overflow: hidden; }

@@ -48,7 +48,7 @@ export function OrderBookView({
         </div>
       </section>
 
-      <MetricGrid summary={result.summary} realized={result.realized_metrics} target={result.meta.target_ticker} momentum={result.meta.momentum_ticker} period={period} />
+      <MetricGrid result={result} period={period} />
       <EquityChart points={result.equity} modeBands={result.mode_bands} logScale={result.meta.log_scale} target={result.meta.target_ticker} />
       <DataTable title="일일 거래 요약" eyebrow="DAILY LOG" table={result.journal} filename={`dongpa_daily_${result.meta.target_ticker}.csv`} limit={8} />
     </div>
