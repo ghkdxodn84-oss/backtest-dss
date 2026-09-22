@@ -1,6 +1,15 @@
 # Tasks
 
 ## In Progress
+- [ ] 웹 뷰어 차트·주문 시트 고도화 (Spectrum UI 시장 블록 기법 참고, 우리 테마로 재구현) (시작 2026-09-23)
+  - 참고: https://ui.spectrumhq.in/blocks/charts#market · 소스 github.com/arihantcodes/spectrum-ui `app/registry/charts/` (Apache-2.0)
+  - Tailwind/shadcn/Recharts 도입 없이 순수 SVG + CSS로 이식. 색·폰트·직각 모서리는 기존 라임/마젠타 토큰 유지
+  - [x] 1. 에쿼티 차트 (2026-09-23): 드로다운 패널, 기간 선택(1M/3M/6M/1Y/ALL, 데이터 부족 구간 비활성), 우측 Y축 nice ticks, 헤더 리드아웃(호버 시점 값·구간 수익률·DD), 단순보유 곡선을 구간 시작 에쿼티에 리베이스해 같은 축, 축 범위 트윈·라인 드로잉 애니메이션(prefers-reduced-motion 존중), 방향키 탐색
+    - `src/chart/engine.ts` 공통 유틸(niceTicks, monotonePath, useTween, useElementWidth). ResizeObserver 실측 폭으로 그려 preserveAspectRatio 왜곡·툴팁 클램프 코드 제거
+    - 모드 밴드 경계가 휴장일이면 이진탐색으로 가장 가까운 거래일에 붙임 (기존엔 end가 없으면 start로 붕괴해 밴드가 한 칸으로 보였음)
+  - [x] 2. LOC 주문 시트 래더 (2026-09-23): `LocLadder.tsx`. 매도 위 / 최근 종가 스프레드 행 / 매수 아래. 게이지는 근거 칸 안에서 종가(0%)를 절반 위치 기준선으로 두고 종가 대비 거리만큼 길거나 짧게 (사용자 피드백으로 누적 수량 → 거리 절대값 → 종가 기준선 순으로 바뀜). 행 클릭 복사 시 라임 플래시. 모바일은 근거 텍스트만 숨기고 게이지 유지
+    - 개발용 샘플: URL `?demo` 붙이면 주문 시트를 `src/dev/demoOrders.ts` 데이터로 교체
+  - 이후 후보: 3. 요약 지표 스파크라인, 4. 일별 손익·모드 캘린더 히트맵, 5. 캔들+RSI 패널(API에 OHLC·RSI 시계열 추가 필요)
 - [ ] 데이터 자동 갱신 방법 결정: GitHub Actions 러너(Azure IP)가 Yahoo에 차단됨
   - 후보 A: 집 PC 스케줄러(Windows Task Scheduler → WSL)에서 fetch + push
   - 후보 B: Tiingo 무료 API 키 발급 후 Actions에서 Tiingo로 fetch

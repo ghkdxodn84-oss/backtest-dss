@@ -1,51 +1,8 @@
-import { copyText } from "../clipboard";
-import type { BacktestRequest, CellValue, OrderBookPayload, TablePayload, ViewerResult } from "../types";
+import type { BacktestRequest, OrderBookPayload, ViewerResult } from "../types";
 import { DataTable } from "./DataTable";
 import { EquityChart } from "./EquityChart";
+import { LocLadder } from "./LocLadder";
 import { MetricGrid } from "./MetricGrid";
-
-function valueText(value: CellValue, column?: string) {
-  if (value == null || value === "") return "—";
-  if (column === "주문가" && typeof value === "number") return value.toFixed(2);
-  if (typeof value === "number") return value.toLocaleString("ko-KR", { maximumFractionDigits: 2 });
-  return String(value);
-}
-
-function subset(table: TablePayload, predicate: (row: Record<string, CellValue>) => boolean): TablePayload {
-  return { columns: table.columns, rows: table.rows.filter(predicate) };
-}
-
-function OrderColumn({ title, tone, table }: { title: string; tone: "sell" | "buy"; table: TablePayload }) {
-  const total = table.rows.reduce((sum, row) => sum + (typeof row["수량"] === "number" ? row["수량"] : 0), 0);
-  const columns = ["구분", "주문가", "수량", "비고"].filter((column) => table.columns.includes(column));
-
-  const copyPrice = (row: Record<string, CellValue>) => {
-    const price = row["주문가"];
-    if (typeof price !== "number") return;
-    copyText(price.toFixed(2));
-  };
-
-  return (
-    <section className="order-column">
-      <header><strong className={tone}>{title}</strong><span>{table.rows.length}건 · 합계 {total.toLocaleString()}주</span></header>
-      <div className="order-table-wrap">
-        {table.rows.length ? (
-          <table className="order-table">
-            <thead><tr>{columns.map((column) => <th key={column}>{column === "비고" ? "근거" : column}</th>)}</tr></thead>
-            <tbody>{table.rows.map((row, index) => (
-              <tr
-                key={index}
-                className="copyable"
-                title="클릭하면 주문가 복사"
-                onClick={() => copyPrice(row)}
-              >{columns.map((column) => <td key={column} className={column === "구분" ? tone : ""}>{valueText(row[column], column)}</td>)}</tr>
-            ))}</tbody>
-          </table>
-        ) : <div className="compact-empty">예정된 주문이 없습니다.</div>}
-      </div>
-    </section>
-  );
-}
 
 export function OrderBookView({
   orderBook,
@@ -57,8 +14,6 @@ export function OrderBookView({
   request: BacktestRequest;
 }) {
   const state = orderBook.state;
-  const sellOrders = subset(orderBook.orders, (row) => String(row["구분"] ?? "").startsWith("매도"));
-  const buyOrders = subset(orderBook.orders, (row) => String(row["구분"] ?? "").startsWith("매수"));
   const period = `${result.meta.start_date} – ${result.meta.end_date}`;
 
   return (
@@ -78,11 +33,7 @@ export function OrderBookView({
         </section>
       </section>
 
-      <section className="order-sheet-panel">
-        <header className="panel-header"><span className="eyebrow lime">// 다음 거래일 LOC 주문 시트</span><small>주문 유형 전부 LOC · 장 마감 30분 전 제출</small></header>
-        <div className="order-columns"><OrderColumn title="매도 // SELL" tone="sell" table={sellOrders} /><OrderColumn title="매수 // BUY" tone="buy" table={buyOrders} /></div>
-        <footer>{orderBook.netting_message || "모의 계산 결과 · 실제 주문은 사용자 책임"}</footer>
-      </section>
+      <LocLadder orderBook={orderBook} footer={orderBook.netting_message || "모의 계산 결과 · 실제 주문은 사용자 책임"} />
 
       <DataTable title="보유 포지션" eyebrow="OPEN TRANCHES" table={orderBook.holdings} filename={`dongpa_holdings_${result.meta.target_ticker}.csv`} limit={0} />
 

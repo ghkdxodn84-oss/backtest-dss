@@ -8,6 +8,7 @@ import { OrderBookView } from "./components/OrderBookView";
 import { RunToolbar } from "./components/RunToolbar";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { StrategyStrip } from "./components/StrategyStrip";
+import { applyDemoOrders, isDemoMode } from "./dev/demoOrders";
 import type { BacktestRequest, RunView, ViewerResult, ViewName } from "./types";
 
 // v2: server defaults now merge config/personal_settings.json; the version
@@ -100,7 +101,8 @@ export default function App() {
     setRunning(targetView);
     setErrors((current) => ({ ...current, [targetView]: undefined }));
     try {
-      const result = await runViewer(targetView, request);
+      const fetched = await runViewer(targetView, request);
+      const result = isDemoMode() ? applyDemoOrders(fetched) : fetched;
       setResults((current) => ({ ...current, [targetView]: result }));
       setLastRuns((current) => ({ ...current, [targetView]: new Date() }));
     } catch (reason) {
