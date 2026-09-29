@@ -3,6 +3,8 @@
   "momentum": "QQQ",
   "bench": "SOXX",
   "cash_limited_buy": false,
+  "enable_netting": true,
+  "allow_fractional": false,
   "defense_slices": 11,
   "defense_buy": 7.75,
   "defense_tp": 1.26,

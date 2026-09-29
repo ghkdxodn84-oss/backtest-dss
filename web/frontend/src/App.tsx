@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import { getDefaults, runViewer } from "./api/client";
+import { getAccounts, getDefaults, runViewer } from "./api/client";
 import { DailyLog } from "./components/DailyLog";
 import { DataTable } from "./components/DataTable";
 import { EquityChart } from "./components/EquityChart";
@@ -8,13 +8,35 @@ import { MetricGrid } from "./components/MetricGrid";
 import { OrderBookView } from "./components/OrderBookView";
 import { RunToolbar } from "./components/RunToolbar";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { AccountSwitcher } from "./components/AccountSwitcher";
 import { StrategyStrip } from "./components/StrategyStrip";
 import { applyDemoOrders, isDemoMode } from "./dev/demoOrders";
-import type { BacktestRequest, RunView, ViewerResult, ViewName } from "./types";
+import type { Account, BacktestRequest, RunView, ViewerResult, ViewName } from "./types";
 
-// v2: server defaults now merge config/personal_settings.json; the version
-// bump discards v1 blobs saved with the old defaults (2022 start, 10k cash).
+// v2: server defaults merge config/strategy.json with the first account; the
+// version bump discarded v1 blobs saved with the old defaults (2022 start, 10k cash).
 const STORAGE_KEY = "dongpa-viewer-settings-v2";
+const ACCOUNT_KEY = "dongpa-viewer-account";
+
+function loadAccountId() {
+  try {
+    return localStorage.getItem(ACCOUNT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** The order book runs the shared strategy with the account's own start, cash and steps. */
+function withAccount(request: BacktestRequest, account?: Account): BacktestRequest {
+  if (!account) return request;
+  return {
+    ...request,
+    start_date: account.start_date,
+    initial_cash: account.initial_cash,
+    spread_buy_levels: account.spread_buy_levels,
+    spread_buy_step: account.spread_buy_step,
+  };
+}
 
 function loadLocalSettings(defaults: BacktestRequest) {
   try {
@@ -83,6 +105,29 @@ export default function App() {
   const [lastRuns, setLastRuns] = useState<Partial<Record<RunView, Date>>>({});
   const [running, setRunning] = useState<RunView | null>(null);
   const [errors, setErrors] = useState<Partial<Record<RunView, string>>>({});
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accountsLoaded, setAccountsLoaded] = useState(false);
+  const [accountId, setAccountId] = useState<string | null>(loadAccountId);
+
+  useEffect(() => {
+    // Without accounts the order book falls back to the browser settings.
+    getAccounts()
+      .then(setAccounts)
+      .catch(() => setAccounts([]))
+      .finally(() => setAccountsLoaded(true));
+  }, []);
+
+  const account = accounts.find((item) => item.id === accountId) ?? accounts[0];
+  const orderBookRequest = useMemo(() => (request ? withAccount(request, account) : null), [request, account]);
+
+  const selectAccount = (id: string) => {
+    setAccountId(id);
+    try {
+      localStorage.setItem(ACCOUNT_KEY, id);
+    } catch {
+      // storage unavailable: the choice lasts for this session only
+    }
+  };
 
   useEffect(() => {
     getDefaults()
@@ -98,11 +143,12 @@ export default function App() {
   }, [request]);
 
   const run = async (targetView: RunView) => {
-    if (!request) return;
+    const payload = targetView === "order-book" ? orderBookRequest : request;
+    if (!payload) return;
     setRunning(targetView);
     setErrors((current) => ({ ...current, [targetView]: undefined }));
     try {
-      const fetched = await runViewer(targetView, request);
+      const fetched = await runViewer(targetView, payload);
       const result = isDemoMode() ? applyDemoOrders(fetched) : fetched;
       setResults((current) => ({ ...current, [targetView]: result }));
       setLastRuns((current) => ({ ...current, [targetView]: new Date() }));
@@ -113,11 +159,12 @@ export default function App() {
     }
   };
 
-  const ready = request != null;
+  // Wait for the accounts too, or the first order book run would use the browser settings.
+  const ready = request != null && accountsLoaded;
   useEffect(() => {
     if (view === "order-book" && ready) void run("order-book");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, ready]);
+  }, [view, ready, account?.id]);
 
   const navItems: Array<[ViewName, string]> = [
     ["order-book", "ORDER BOOK"],
@@ -157,10 +204,11 @@ export default function App() {
         </main>
       ) : (
         <main className="screen">
-          <StrategyStrip request={request} orderBook={results["order-book"]?.order_book} onSettings={() => setView("settings")} />
+          {accounts.length > 1 && account && <AccountSwitcher accounts={accounts} selected={account.id} disabled={running === "order-book"} onSelect={selectAccount} />}
+          <StrategyStrip request={orderBookRequest ?? request} orderBook={results["order-book"]?.order_book} onSettings={() => setView("settings")} />
           <div className="page-body">
             {activeError && <div className="error-banner"><strong>REQUEST FAILED</strong><span>{activeError}</span></div>}
-            {isLoading ? <LoadingResult /> : activeResult?.order_book ? <OrderBookView orderBook={activeResult.order_book} result={activeResult} request={request} /> : <EmptyResult label="오더북 결과가 없습니다." onSettings={() => setView("settings")} />}
+            {isLoading ? <LoadingResult /> : activeResult?.order_book ? <OrderBookView orderBook={activeResult.order_book} result={activeResult} request={orderBookRequest ?? request} /> : <EmptyResult label="오더북 결과가 없습니다." onSettings={() => setView("settings")} />}
             <footer className="footer"><span>DONGPA VIEWER / READ ONLY</span><span>모의 계산 결과 · 실제 주문은 사용자 책임</span></footer>
           </div>
         </main>

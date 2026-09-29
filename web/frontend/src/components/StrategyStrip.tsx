@@ -13,6 +13,8 @@ export function StrategyStrip({
   const params = mode === "offense" ? request.strategy.offense : request.strategy.defense;
   const fields = [
     ["시작일", request.start_date],
+    ["시작금", `$${request.initial_cash.toLocaleString("en-US", { maximumFractionDigits: 0 })}`],
+    ["스텝", `${request.spread_buy_step}주`],
     ["분할수", `${params.slices}`],
     ["매수조건", `${params.buy_cond_pct}%`],
     ["익절", `${params.tp_pct}%`],

@@ -536,7 +536,7 @@ if "optuna_results" in st.session_state and st.session_state["optuna_results"]:
             "파일 이름",
             placeholder="예: optuna_best_1",
             key="save_config_name",
-            help="config/ 폴더에 JSON 파일로 저장됩니다 (backtest 페이지에서 불러올 수 있음)",
+            help="config/presets/ 폴더에 JSON 파일로 저장됩니다 (backtest 페이지에서 불러올 수 있음)",
         )
 
     selected_res = final_results[save_rank - 1]

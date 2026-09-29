@@ -40,6 +40,17 @@
   - 429 심하면 대안: Render free / 집 PC + Cloudflare Tunnel (조사 문서: claude.ai/code/artifact/fe573437-3a8e-4882-a918-c473ea653852)
 
 ## Done
+- [x] config 구조 정리 (2026-09-30)
+  - `strategy.json`(공통 전략) · `accounts/*.json`(계좌별) · `presets/*.json`(전략 후보)로 분리, `personal_settings.json` 삭제
+  - 퉁치기 · 소수점 거래는 strategy.json으로 이동(사용자 결정: 모든 계좌 공통). log_scale은 화면 토글이라 파일에서 제외
+  - 파일 I/O를 `engines/config_store.py`로 통합해 웹 API · Streamlit · Optuna가 공유. 전략 파일에는 계좌 키가, 계좌 파일에는 전략 키가 저장되지 않음
+  - Streamlit 오더북: 계좌 선택 박스, "설정 저장"은 전략 + 선택 계좌, "새 계좌로 저장" 추가. 전략 후보 저장 · Optuna 결과는 presets/로
+  - strategy.json이 root 소유라 저장이 안 되던 것을 olion 소유로 교체
+- [x] 다중 계좌 오더북 (2026-09-30)
+  - `config/accounts/<id>.json` 하나가 계좌 하나: name, start_date, init_cash, spread_buy_levels, spread_buy_step. 파일이 없으면 기본값 계좌 하나
+  - 계좌 JSON은 gitignore (공개 저장소라 이름·금액 비공개). 예시는 `example.json.sample`. 이미지 빌드는 로컬 파일을 복사하므로 `make deploy`에 포함됨
+  - API `GET /api/v1/accounts`. 프론트는 오더북 요청에만 계좌 값을 덮어씀 (전략은 공통, 백테스트 화면은 브라우저 설정 그대로)
+  - 오더북 상단 계좌 탭(계좌 2개 이상일 때만 표시), 선택은 localStorage 기억, 전환 시 오더북 재계산. 스트립에 시작금·스텝 칸 추가
 - [x] 백테스트 매수를 오더북 스텝(스프레드) 주문 기준으로 체결 (2026-09-30)
   - 문제: 백테스트는 종가 ≤ 매수가면 `예산 ÷ 종가`만큼 전부 매수, 실제 주문은 기본 수량 + 스텝(3주 × 5단계)이라 급락일에 계좌가 덜 삼 → 오더북 보유 현황이 계좌와 어긋남
   - 엔진 `StrategyParams.spread_buy_step` 추가 (None = 기존 방식). 기본 수량 `예산 ÷ 매수가` + 종가가 도달한 스텝마다 step주 (`spread_fill_qty`)

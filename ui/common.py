@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pandas as pd
@@ -17,6 +16,19 @@ from engines.dongpa_engine import (
     compute_trade_metrics,  # noqa: F401
 )
 
+# Config files live in engines.config_store; re-exported for the pages.
+from engines.config_store import (  # noqa: F401
+    ACCOUNT_KEYS,
+    STRATEGY_PATH,
+    find_account,
+    load_accounts,
+    load_strategy,
+    preset_path,
+    save_account,
+    save_strategy,
+    strategy_files,
+)
+
 # ---------------------- Constants ----------------------
 
 NAV_LINKS = [
@@ -25,12 +37,7 @@ NAV_LINKS = [
     ("pages/3_optuna.py", "Optuna"),
 ]
 
-SETTINGS_PATH = Path("config") / "strategy.json"
-LOCAL_SETTINGS_PATH = Path("config") / "personal_settings.json"
-CONFIG_DIR = Path("config")
 LOOKBACK_DAYS = 1000  # Extra days for weekly RSI EMA warm-up convergence
-
-LOCAL_KEYS = {"start_date", "init_cash", "log_scale", "spread_buy_levels", "spread_buy_step", "enable_netting", "allow_fractional"}
 
 DEFAULT_PARAMS = {
     "target": "SOXL",
@@ -85,74 +92,28 @@ def render_navigation() -> None:
 
 # ---------------------- Settings I/O ----------------------
 
-def _read_json(path: Path) -> dict:
-    """Read a JSON file and return its contents as a dict."""
-    if path.exists():
-        try:
-            with path.open("r", encoding="utf-8") as fh:
-                data = json.load(fh)
-            if isinstance(data, dict):
-                return data
-        except (json.JSONDecodeError, OSError):
-            pass
-    return {}
+def load_settings(config_path: Path | None = None, account_id: str | None = None) -> dict:
+    """Strategy file (strategy.json or a preset) merged with one account's values.
 
-
-def _write_json(path: Path, data: dict) -> None:
-    """Write a dict to a JSON file."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=2)
-
-
-def load_settings(config_path: Path | None = None) -> dict:
-    """Load settings from config JSON file(s).
-
-    When loading the default settings path, strategy settings and local
-    (personal) settings are merged from two separate files.
+    ``account_id`` picks the account; ``None`` means the first one.
     """
-    path = config_path if config_path else SETTINGS_PATH
-    result = _read_json(path)
-
-    # For the default path, also merge local settings
-    if path == SETTINGS_PATH:
-        result.update(_read_json(LOCAL_SETTINGS_PATH))
-
+    result = load_strategy(config_path or STRATEGY_PATH)
+    account = find_account(account_id)
+    result.update({key: account[key] for key in ACCOUNT_KEYS if account[key] is not None})
     return result
 
 
-def save_settings(payload: dict, config_path: Path | None = None) -> None:
-    """Save settings to config JSON file(s).
-
-    When saving to the default path, personal keys (start_date, init_cash,
-    log_scale) are split into personal_settings.json while strategy keys go
-    to strategy.json.
-    """
-    path = config_path if config_path else SETTINGS_PATH
-
-    if path == SETTINGS_PATH:
-        local_data = {k: v for k, v in payload.items() if k in LOCAL_KEYS}
-        strategy_data = {k: v for k, v in payload.items() if k not in LOCAL_KEYS}
-        _write_json(LOCAL_SETTINGS_PATH, local_data)
-        _write_json(path, strategy_data)
-    else:
-        _write_json(path, payload)
+def save_settings(payload: dict, account_id: str | None = None) -> None:
+    """Strategy keys → strategy.json, account keys → that account's file."""
+    save_strategy(payload)
+    save_account(account_id or find_account(None)["id"], payload)
 
 
-def get_available_config_files() -> list[Path]:
-    """Get all JSON config files in the config directory.
-
-    Excludes personal_settings.json from the listing.
-    """
-    if not CONFIG_DIR.exists():
-        return []
-    excluded = {"personal_settings.json"}
-    json_files = [
-        p for p in CONFIG_DIR.glob("*.json")
-        if p.name not in excluded
-    ]
-    json_files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    return json_files
+def save_preset(name: str, payload: dict) -> Path:
+    """Save the strategy keys of ``payload`` as config/presets/<name>.json."""
+    path = preset_path(name)
+    save_strategy(payload, path)
+    return path
 
 
 # ---------------------- Strategy Params Builder ----------------------

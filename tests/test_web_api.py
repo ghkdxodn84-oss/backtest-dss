@@ -10,6 +10,7 @@ from tests.conftest import _make_price_df
 from web.api.app import main as api_main
 from web.api.app.schemas import BacktestRequest, ModeSettings, StrategySettings
 from web.api.app.serializers import dataframe_payload, json_value
+from web.api.app.services.accounts import load_accounts
 from web.api.app.services.backtest import run_backtest_view, run_order_book_view
 
 
@@ -96,3 +97,24 @@ def test_schema_rejects_invalid_period():
         assert "start_date" in str(exc)
     else:
         raise AssertionError("invalid period was accepted")
+
+
+def test_accounts_load_sorted_and_skip_broken_files(tmp_path):
+    (tmp_path / "b_sub.json").write_text('{"name": "서브", "start_date": "2026-09-01", "init_cash": 20000}')
+    (tmp_path / "a_main.json").write_text('{"name": "메인", "start_date": "2026-06-01", "init_cash": 50000, "spread_buy_step": 3}')
+    (tmp_path / "broken.json").write_text('{"init_cash": -1}')
+
+    accounts = load_accounts(tmp_path)
+
+    assert [a.id for a in accounts] == ["a_main", "b_sub"]
+    main, sub = accounts
+    assert (main.name, main.initial_cash, main.spread_buy_step) == ("메인", 50000, 3)
+    assert (sub.spread_buy_levels, sub.spread_buy_step) == (5, 1)
+    assert sub.start_date == date(2026, 9, 1)
+
+
+def test_accounts_default_to_single_account(tmp_path):
+    accounts = load_accounts(tmp_path / "missing")
+
+    assert [a.id for a in accounts] == ["main"]
+    assert accounts[0].initial_cash == 10_000

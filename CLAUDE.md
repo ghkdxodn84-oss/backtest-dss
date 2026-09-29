@@ -44,7 +44,7 @@ Dongpa is a Streamlit-based backtesting application for the "동파법" (Dongpa 
 
 **`pages/2_order_book.py`** - LOC order schedule generator
 - Real-time order planning based on latest market data
-- Persists settings to `config/strategy.json` + `config/personal_settings.json`
+- Persists the strategy to `config/strategy.json` and the selected account to `config/accounts/<id>.json`
 - Displays next-day LOC order schedule
 
 **`pages/3_optuna.py`** - Optuna optimizer UI
@@ -156,6 +156,7 @@ backtest-dss/
 │   ├── __init__.py
 │   ├── dongpa_engine.py     # Core backtest engine
 │   ├── order_book_engine.py # LOC order book logic
+│   ├── config_store.py      # config/ file I/O shared by web and Streamlit
 │   └── dongpa_optuna.py     # Optuna optimizer engine
 ├── ui/
 │   ├── __init__.py
@@ -167,9 +168,9 @@ backtest-dss/
 │   └── 3_optuna.py          # Optuna optimizer UI
 ├── tests/                   # pytest suite
 ├── config/
-│   ├── strategy.json        # Strategy parameters config
-│   ├── personal_settings.json # Personal settings
-│   └── order_book_history.csv # Order history log
+│   ├── strategy.json        # Shared strategy (all accounts trade it)
+│   ├── accounts/            # Per-account name/start_date/init_cash/spread (*.json gitignored, *.sample committed)
+│   └── presets/             # Saved strategy candidates (backups, Optuna results)
 ├── docs/                    # Documentation
 │   ├── dongpa_strategy.md   # Strategy rules (Korean)
 │   └── dongpa_visualize.md  # UI layout guide

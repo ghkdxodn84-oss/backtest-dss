@@ -24,7 +24,8 @@ COPY pyproject.toml uv.lock ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-dev
 
-COPY config/strategy.json config/personal_settings.json ./config/
+COPY config/strategy.json ./config/
+COPY config/accounts ./config/accounts
 COPY engines ./engines
 COPY scripts/update_market_data.py ./scripts/update_market_data.py
 COPY data ./data

@@ -1,4 +1,4 @@
-import type { BacktestRequest, RunView, ViewerResult } from "../types";
+import type { Account, BacktestRequest, RunView, ViewerResult } from "../types";
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -12,6 +12,11 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 export function getDefaults(): Promise<BacktestRequest> {
   return requestJson<BacktestRequest>("/api/v1/config/defaults");
+}
+
+export async function getAccounts(): Promise<Account[]> {
+  const data = await requestJson<{ accounts: Account[] }>("/api/v1/accounts");
+  return data.accounts;
 }
 
 export function runViewer(view: RunView, payload: BacktestRequest): Promise<ViewerResult> {

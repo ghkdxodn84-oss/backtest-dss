@@ -1,0 +1,7 @@
+{
+  "name": "서브 계좌",
+  "start_date": "2026-09-01",
+  "init_cash": 20000.0,
+  "spread_buy_levels": 5,
+  "spread_buy_step": 1
+}

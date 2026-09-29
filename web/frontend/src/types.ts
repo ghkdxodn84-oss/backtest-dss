@@ -42,6 +42,16 @@ export interface BacktestRequest {
   strategy: StrategySettings;
 }
 
+/** config/accounts/<id>.json — the order book runs the shared strategy with these per-account values. */
+export interface Account {
+  id: string;
+  name: string;
+  start_date: string;
+  initial_cash: number;
+  spread_buy_levels: number;
+  spread_buy_step: number;
+}
+
 export type CellValue = string | number | boolean | null;
 
 export interface TablePayload {

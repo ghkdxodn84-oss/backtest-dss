@@ -3,7 +3,6 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import json
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -18,12 +17,13 @@ from ui.charts import (
     build_equity_price_chart,
 )
 from ui.common import (
-    CONFIG_DIR,
     DEFAULT_PARAMS,
     LOOKBACK_DAYS,
     build_strategy_params,
     load_settings,
     render_navigation,
+    save_preset,
+    strategy_files,
 )
 
 
@@ -185,23 +185,11 @@ with st.sidebar:
 
     st.divider()
 
-    # Classify config files: start_date 키가 있으면 개인(제외), 없으면 전략
-    strategy_files: list[Path] = []
-    if CONFIG_DIR.exists():
-        for p in sorted(CONFIG_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
-            if p.name == "personal_settings.json":
-                continue
-            try:
-                with p.open("r", encoding="utf-8") as fh:
-                    keys = set(json.load(fh).keys())
-            except Exception:
-                keys = set()
-            if "start_date" not in keys:
-                strategy_files.append(p)
+    strategy_file_paths = strategy_files()
 
     st.subheader("📁 전략 설정")
-    if strategy_files:
-        strat_options = {p.name: p for p in strategy_files}
+    if strategy_file_paths:
+        strat_options = {p.name: p for p in strategy_file_paths}
         strat_names = list(strat_options.keys())
         default_strat_idx = strat_names.index("strategy.json") if "strategy.json" in strat_names else 0
 
@@ -307,27 +295,19 @@ with st.sidebar:
     save_config_name = st.text_input(
         "전략 설정 파일 이름",
         placeholder="예: my_strategy",
-        help="전략 파라미터를 config/ 폴더에 JSON 파일로 저장합니다",
+        help="전략 파라미터를 config/presets/ 폴더에 JSON 파일로 저장합니다",
     )
 
     if st.button("💾 전략 설정 저장", type="secondary", width="stretch"):
-        reserved = {"default", "strategy", "personal_settings"}
-        if not save_config_name or save_config_name.strip() == "":
+        name = (save_config_name or "").strip().removesuffix(".json")
+        if not name:
             st.error("❌ 파일 이름을 입력해주세요!")
-        elif save_config_name.strip().lower().removesuffix(".json") in reserved:
+        elif name.lower() in {"default", "strategy"}:
             st.error("❌ 예약된 이름입니다. 다른 이름을 사용해주세요!")
         else:
-            save_filename = save_config_name.strip()
-            if not save_filename.endswith(".json"):
-                save_filename += ".json"
-
-            save_path = CONFIG_DIR / save_filename
-            CONFIG_DIR.mkdir(exist_ok=True)
-
             try:
-                with save_path.open("w", encoding="utf-8") as fh:
-                    json.dump(_build_strategy_payload(), fh, ensure_ascii=False, indent=2)
-                st.success(f"✅ 전략 설정이 '{save_filename}'에 저장되었습니다!")
+                saved_path = save_preset(name, _build_strategy_payload())
+                st.success(f"✅ 전략 설정이 'presets/{saved_path.name}'에 저장되었습니다!")
             except Exception as e:
                 st.error(f"❌ 저장 실패: {e}")
 

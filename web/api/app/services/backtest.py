@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import date, timedelta
-from pathlib import Path
 from typing import Callable
 
 import pandas as pd
@@ -30,13 +28,14 @@ from engines.order_book_engine import (
     build_spread_orders,
     extract_state,
 )
+from engines.config_store import load_strategy
 from web.api.app.schemas import BacktestRequest, ModeSettings, StrategySettings
 from web.api.app.serializers import dataframe_payload, json_value, records_payload
+from web.api.app.services.accounts import load_accounts
 from web.api.app.services.market_data import MarketDataClient, market_data_client
 
 
 LOOKBACK_DAYS = 1000
-REPO_ROOT = Path(__file__).resolve().parents[4]
 
 
 @dataclass(frozen=True)
@@ -281,31 +280,19 @@ def run_order_book_view(
     return payload
 
 
-def _load_config(filename: str) -> dict:
-    path = REPO_ROOT / "config" / filename
-    try:
-        loaded = json.loads(path.read_text(encoding="utf-8"))
-        return loaded if isinstance(loaded, dict) else {}
-    except (OSError, json.JSONDecodeError):
-        return {}
-
-
 def default_request() -> BacktestRequest:
+    """Shared strategy + the first account (the web viewer's starting settings)."""
     today = date.today()
-    raw = _load_config("strategy.json")
-    personal = _load_config("personal_settings.json")
-
-    start_date = date(today.year - 4, 1, 1)
-    try:
-        start_date = date.fromisoformat(personal["start_date"])
-    except (KeyError, TypeError, ValueError):
-        pass
+    raw = load_strategy()
+    accounts = load_accounts()
+    account = accounts[0] if accounts else None
+    start_date = account.start_date if account else date(today.year - 4, 1, 1)
 
     strategy = StrategySettings(
         target_ticker=raw.get("target", "SOXL"),
         momentum_ticker=raw.get("momentum", "QQQ"),
-        enable_netting=personal.get("enable_netting", True),
-        allow_fractional_shares=personal.get("allow_fractional", False),
+        enable_netting=raw.get("enable_netting", True),
+        allow_fractional_shares=raw.get("allow_fractional", False),
         cash_limited_buy=raw.get("cash_limited_buy", False),
         rsi_high_threshold=raw.get("rsi_high_threshold", 65),
         rsi_mid_high=raw.get("rsi_mid_high", 60),
@@ -330,9 +317,9 @@ def default_request() -> BacktestRequest:
     return BacktestRequest(
         start_date=start_date,
         end_date=today,
-        initial_cash=float(personal.get("init_cash", 10_000)),
-        log_scale=personal.get("log_scale", True),
-        spread_buy_levels=int(personal.get("spread_buy_levels", 5)),
-        spread_buy_step=int(personal.get("spread_buy_step", 1)),
+        initial_cash=account.initial_cash if account else 10_000,
+        log_scale=True,
+        spread_buy_levels=account.spread_buy_levels if account else 5,
+        spread_buy_step=account.spread_buy_step if account else 1,
         strategy=strategy,
     )

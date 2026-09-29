@@ -13,6 +13,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from web.api.app.schemas import BacktestRequest
+from web.api.app.services.accounts import load_accounts
 from web.api.app.services.backtest import default_request, run_backtest_view, run_order_book_view
 from web.api.app.services.market_data import MarketDataError
 
@@ -71,6 +72,11 @@ def health() -> dict[str, str]:
 @app.get("/api/v1/config/defaults")
 def defaults() -> dict:
     return default_request().model_dump(mode="json")
+
+
+@app.get("/api/v1/accounts")
+def accounts() -> dict:
+    return {"accounts": [account.model_dump(mode="json") for account in load_accounts()]}
 
 
 def _run_view(handler, request: BacktestRequest) -> dict:

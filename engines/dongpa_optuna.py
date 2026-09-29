@@ -5,7 +5,6 @@ Uses Bayesian Optimization (TPE algorithm) to maximize Calmar ratio
 """
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -16,6 +15,7 @@ import optuna
 import pandas as pd
 import yfinance as yf
 
+from engines.config_store import STRATEGY_PATH, load_strategy, preset_path, save_strategy
 from engines.dongpa_engine import (
     CapitalParams,
     ModeParams,
@@ -802,26 +802,17 @@ def result_to_config_dict(res: OptimizationResult) -> dict:
     return config
 
 
-def apply_to_config(res: OptimizationResult, config_path: str = "config/strategy.json") -> None:
-    """Apply best result to strategy.json."""
-    path = Path(config_path)
-    if path.exists():
-        current = json.loads(path.read_text(encoding="utf-8"))
-    else:
-        current = {}
+def apply_to_config(res: OptimizationResult, config_path: Path = STRATEGY_PATH) -> None:
+    """Apply best result to strategy.json (other strategy keys are kept)."""
+    current = load_strategy(config_path)
     current.update(result_to_config_dict(res))
-    path.write_text(json.dumps(current, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    save_strategy(current, config_path)
 
 
 def save_result_as_config(res: OptimizationResult, filename: str) -> Path:
-    """Save a single OptimizationResult as a named config JSON file."""
-    config_dir = Path("config")
-    config_dir.mkdir(exist_ok=True)
-    if not filename.endswith(".json"):
-        filename += ".json"
-    path = config_dir / filename
-    config = result_to_config_dict(res)
-    path.write_text(json.dumps(config, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    """Save a single OptimizationResult as config/presets/<filename>.json."""
+    path = preset_path(filename)
+    save_strategy(result_to_config_dict(res), path)
     return path
 
 
