@@ -60,7 +60,11 @@ def _mode_params(settings: ModeSettings) -> ModeParams:
     )
 
 
-def build_engine_params(settings: StrategySettings, initial_cash: float) -> tuple[StrategyParams, CapitalParams]:
+def build_engine_params(
+    settings: StrategySettings,
+    initial_cash: float,
+    spread_buy_step: int | None = None,
+) -> tuple[StrategyParams, CapitalParams]:
     params = StrategyParams(
         target_ticker=settings.target_ticker,
         momentum_ticker=settings.momentum_ticker,
@@ -68,6 +72,7 @@ def build_engine_params(settings: StrategySettings, initial_cash: float) -> tupl
         enable_netting=settings.enable_netting,
         allow_fractional_shares=settings.allow_fractional_shares,
         cash_limited_buy=settings.cash_limited_buy,
+        spread_buy_step=spread_buy_step,
         rsi_high_threshold=settings.rsi_high_threshold,
         rsi_mid_high=settings.rsi_mid_high,
         rsi_neutral=settings.rsi_neutral,
@@ -107,7 +112,12 @@ def _execute(
     if target.empty:
         raise ValueError("선택한 기간에 대상 종목 데이터가 없습니다.")
 
-    params, capital = build_engine_params(strategy, request.initial_cash)
+    # Fill buys only through the step ladder the order book actually places.
+    params, capital = build_engine_params(
+        strategy,
+        request.initial_cash,
+        spread_buy_step=request.spread_buy_step,
+    )
     result = run_backtest(target, momentum_raw, params, capital, btc_data=btc_raw)
     indicators = None
     if include_indicators:
@@ -192,6 +202,7 @@ def _order_ui_values(request: BacktestRequest) -> dict:
         "offense_hold": strategy.offense.max_hold_days,
         "spread_buy_levels": request.spread_buy_levels,
         "spread_buy_step": request.spread_buy_step,
+        "cash_limited_buy": strategy.cash_limited_buy,
     }
 
 

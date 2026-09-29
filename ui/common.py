@@ -193,6 +193,10 @@ def build_strategy_params(ui_values: dict) -> tuple[StrategyParams, CapitalParam
         "enable_netting": ui_values.get("enable_netting", True),
         "allow_fractional_shares": ui_values.get("allow_fractional", False),
         "cash_limited_buy": ui_values.get("cash_limited_buy", False),
+        # Step buy qty from the order book settings; absent → legacy fill.
+        "spread_buy_step": (
+            int(ui_values["spread_buy_step"]) if "spread_buy_step" in ui_values else None
+        ),
         "defense": defense,
         "offense": offense,
     }

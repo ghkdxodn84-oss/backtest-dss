@@ -205,10 +205,89 @@ class StrategyParams:
     btc_threshold_pct: float = 0.0    # Min % return to trigger mode (0 = any positive)
     # Buy execution: use min(tranche_budget, cash) instead of skipping when cash < tranche_budget
     cash_limited_buy: bool = False
+    # Step (spread) buy ladder, mirroring the order book's LOC orders.
+    # None = legacy fill: buy floor(budget / close) shares whenever close <= limit.
+    # int  = buy the base qty at the limit plus `spread_buy_step` shares for every
+    #        lower step whose price is >= close. The order book's level count only
+    #        limits how many rows it displays, so the backtest does not cap steps.
+    spread_buy_step: int | None = None
 
     def __post_init__(self):
         if self.defense is None or self.offense is None:
             raise ValueError("StrategyParams requires both 'defense' and 'offense' ModeParams")
+
+# ---------------------- Step (spread) buy ladder ----------------------
+
+SPREAD_MIN_DROP_PCT = Decimal("-50")
+
+
+def _spread_step_price(budget: Decimal, ref_qty: Decimal, n: int, step: int) -> Decimal:
+    """Price where ``budget`` buys ``ref_qty + n * step`` shares, rounded to the entered cent."""
+    return money(budget / (ref_qty + Decimal(n * step)))
+
+
+def spread_ladder(
+    budget,
+    ref_price,
+    levels: int,
+    step: int,
+    allow_fractional: bool = False,
+) -> list[tuple[Decimal, Decimal]]:
+    """Lower LOC buy steps below the base buy: [(price, qty), ...] high → low.
+
+    Step ``n`` is placed at the price where ``budget`` would buy
+    ``ref_qty + n * step`` shares. The backtest fills against the same
+    prices via :func:`spread_fill_qty`.
+    """
+    budget = to_decimal(budget)
+    ref_price = to_decimal(ref_price)
+    if budget <= 0 or ref_price <= 0 or levels <= 0 or step <= 0:
+        return []
+    ref_qty = shares(budget / ref_price, allow_fractional)
+    if ref_qty <= 0:
+        return []
+    rows: list[tuple[Decimal, Decimal]] = []
+    for n in range(1, levels + 1):
+        price = _spread_step_price(budget, ref_qty, n, step)
+        if (price / ref_price - ONE) * HUNDRED < SPREAD_MIN_DROP_PCT or price <= 0:
+            break
+        rows.append((price, Decimal(step)))
+    return rows
+
+
+def spread_fill_qty(budget, ref_price, close, step: int, allow_fractional: bool = False) -> Decimal:
+    """Shares filled by the steps below the base buy: ``step`` per step price >= close (no level cap)."""
+    budget = to_decimal(budget)
+    ref_price = to_decimal(ref_price)
+    close = to_decimal(close)
+    if budget <= 0 or ref_price <= 0 or close <= 0 or step <= 0:
+        return Decimal("0")
+    ref_qty = shares(budget / ref_price, allow_fractional)
+    if ref_qty <= 0:
+        return Decimal("0")
+    n = 0
+    while close <= _spread_step_price(budget, ref_qty, n + 1, step):
+        n += 1
+    return Decimal(n * step)
+
+
+def netting_floor_price(lots: list[dict], buy_limit: Decimal, prev_close: Decimal) -> Decimal | None:
+    """Order-book netting floor: cheapest sell order at or below the buy limit, minus a cent.
+
+    Mirrors ``apply_netting``: the sell sheet holds each lot's TP, or the prior
+    close for a lot that expires today. When any of those sit at or below the buy
+    limit the order book anchors its spread ladder one cent under the cheapest.
+    """
+    prices = []
+    for lot in lots:
+        expiring = lot['max_hold'] > 0 and lot['days'] + 1 >= lot['max_hold']
+        price = prev_close if expiring else lot['tp']
+        if price <= buy_limit:
+            prices.append(price)
+    if not prices:
+        return None
+    return money(min(prices) - Decimal("0.01"))
+
 
 # ---------------------- Indicator Data ----------------------
 
@@ -740,8 +819,23 @@ def run_backtest(
             and close > Decimal("0")
         ):
             exec_budget = min(tranche_budget, cash) if params.cash_limited_buy else tranche_budget
-            raw_exec_qty = exec_budget / close
-            share_qty = shares(raw_exec_qty, params.allow_fractional_shares)
+            if params.spread_buy_step is None:
+                share_qty = shares(exec_budget / close, params.allow_fractional_shares)
+            else:
+                # Only the LOC orders actually placed can fill: the base order at the
+                # limit plus every lower step whose price the close reached.
+                share_qty = shares(exec_budget / buy_limit, params.allow_fractional_shares)
+                if share_qty > Decimal("0"):
+                    ref_price = buy_limit
+                    if params.enable_netting:
+                        ref_price = netting_floor_price(lots, buy_limit, prev_close) or buy_limit
+                    share_qty += spread_fill_qty(
+                        exec_budget,
+                        ref_price,
+                        close,
+                        params.spread_buy_step,
+                        params.allow_fractional_shares,
+                    )
             trade_value = money(share_qty * close)
             if share_qty > Decimal("0") and trade_value <= cash:
                     cash = money(cash - trade_value)

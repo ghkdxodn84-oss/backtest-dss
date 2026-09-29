@@ -116,6 +116,9 @@ PORT=9000 make run
 - Maximum 1 buy per day
 - Shares must be integer quantity
 - Each tranche sets TP = `fill_price × (1 + tp_pct/100)`
+- With `spread_buy_step` set (web API always sets it from the order book settings), the fill is
+  the base qty `budget ÷ limit` plus `spread_buy_step` shares per step price the close reached
+  (`spread_fill_qty`, no level cap — the order book's level count is display-only). `None` = legacy `budget ÷ close`
 
 **Sell LOC**:
 - If `today_close ≥ TP`: sell at `today_close`

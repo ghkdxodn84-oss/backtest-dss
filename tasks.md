@@ -40,6 +40,14 @@
   - 429 심하면 대안: Render free / 집 PC + Cloudflare Tunnel (조사 문서: claude.ai/code/artifact/fe573437-3a8e-4882-a918-c473ea653852)
 
 ## Done
+- [x] 백테스트 매수를 오더북 스텝(스프레드) 주문 기준으로 체결 (2026-09-30)
+  - 문제: 백테스트는 종가 ≤ 매수가면 `예산 ÷ 종가`만큼 전부 매수, 실제 주문은 기본 수량 + 스텝(3주 × 5단계)이라 급락일에 계좌가 덜 삼 → 오더북 보유 현황이 계좌와 어긋남
+  - 엔진 `StrategyParams.spread_buy_step` 추가 (None = 기존 방식). 기본 수량 `예산 ÷ 매수가` + 종가가 도달한 스텝마다 step주 (`spread_fill_qty`)
+  - 레벨 수는 오더북 표시용일 뿐이라 백테스트에선 제한 없음 (사용자 결정). 레벨당 수량만 적용
+  - 스텝 가격 공식 `_spread_step_price`를 오더북 `spread_ladder`와 공유 → 주문가·체결 기준 일치 (센트 반올림)
+  - 퉁치기 켜짐이면 오더북처럼 스텝 기준가를 퉁치기 바닥가(매수가 이하 최저 매도가 − 0.01)로 계산 (`netting_floor_price`)
+  - 웹 API는 요청의 레벨당 수량을 항상 적용. Streamlit은 ui_values에 스텝 키가 있을 때만(오더북 페이지). Optuna는 기존 방식 유지
+  - 오더북 매수 예산도 `cash_limited_buy` 설정을 따르게 수정 (기존엔 설정 무시하고 항상 min(트랜치 예산, 현금)). 꺼짐이면 트랜치 예산 전체로 수량 산정, 현금 < 예산이면 매수 행 근거에 "현금 부족" 경고
 - [x] 웹 뷰어 파비콘 적용 (2026-09-21)
   - 라임 D 안에 물결 한 줄(시안 I) — 시안 비교: claude.ai/artifact/XbhjeKbnC5rTzksfiVPmcN
   - `web/frontend/public/` favicon.svg + favicon-32.png + apple-touch-icon.png, index.html 링크

@@ -150,6 +150,22 @@ _DEFAULT_UI = {
 
 
 class TestBuildOrderSheet:
+    def test_cash_limited_caps_budget_at_cash(self):
+        ui = {**_DEFAULT_UI, "cash_limited_buy": True}
+        sheet, _, ctx = build_order_sheet(pd.DataFrame(), 100.0, 500.0, 1000.0, "defense", ui, False)
+        buy = next(r for r in sheet if r["구분"] == "매수")
+        assert ctx["effective_budget"] == 500.0
+        assert buy["수량"] == 4  # 500 // 103
+        assert "현금 부족" not in buy["비고"]
+
+    def test_not_cash_limited_uses_full_tranche_and_warns(self):
+        ui = {**_DEFAULT_UI, "cash_limited_buy": False}
+        sheet, _, ctx = build_order_sheet(pd.DataFrame(), 100.0, 500.0, 1000.0, "defense", ui, False)
+        buy = next(r for r in sheet if r["구분"] == "매수")
+        assert ctx["effective_budget"] == 1000.0
+        assert buy["수량"] == 9  # 1000 // 103
+        assert "현금 부족" in buy["비고"]
+
     def test_buy_only_no_positions(self):
         """No open positions, only a buy order is generated."""
         sheet, sl_sheet, ctx = build_order_sheet(

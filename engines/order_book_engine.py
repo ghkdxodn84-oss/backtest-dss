@@ -13,6 +13,8 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
+from engines.dongpa_engine import spread_ladder
+
 
 # --------------- small helpers ---------------
 
@@ -263,7 +265,11 @@ def build_order_sheet(
         buy_limit_price = prev_close * (1 + mode_params_pct / 100) if prev_close else None
 
         if buy_limit_price and buy_limit_price > 0:
-            effective_budget = min(tranche_budget, current_cash)
+            # Same budget rule as the backtest (StrategyParams.cash_limited_buy):
+            # on → cap at cash, off → full tranche (the backtest then skips the
+            # buy when the fill value at the close exceeds cash).
+            cash_limited = ui_values.get("cash_limited_buy", False)
+            effective_budget = min(tranche_budget, current_cash) if cash_limited else tranche_budget
             tp_pct = ui_values["defense_tp"] if current_mode == "defense" else ui_values["offense_tp"]
             sl_pct = ui_values["defense_sl"] if current_mode == "defense" else ui_values["offense_sl"]
 
@@ -276,16 +282,18 @@ def build_order_sheet(
                 new_tp = buy_limit_price * (1 + tp_pct / 100)
                 new_sl = buy_limit_price * (1 - sl_pct / 100) if sl_pct > 0 else None
 
+                note = f"→ TP: ${new_tp:.2f}, SL: ${new_sl:.2f}" if new_sl else f"→ TP: ${new_tp:.2f}"
+                if not cash_limited and tranche_budget > current_cash:
+                    note += (
+                        f" | 현금 부족: 현금 ${current_cash:,.2f} < 예산 ${tranche_budget:,.2f}"
+                        " — 체결금액이 현금을 넘으면 백테스트는 매수 안 함"
+                    )
                 order_sheet.append({
                     "구분": "매수",
                     "주문가": buy_limit_price,
                     "수량": base_qty,
                     "변화율": f"{mode_params_pct:+.1f}%",
-                    "비고": (
-                        f"→ TP: ${new_tp:.2f}, SL: ${new_sl:.2f}"
-                        if new_sl
-                        else f"→ TP: ${new_tp:.2f}"
-                    ),
+                    "비고": note,
                 })
 
                 spread_ctx = {
@@ -528,26 +536,15 @@ def build_spread_orders(
     s_tp_pct = spread_ctx["tp_pct"]
     s_sl_pct = spread_ctx["sl_pct"]
 
-    if allow_fractional:
-        ref_qty = eff_budget / ref_price
-    else:
-        ref_qty = int(eff_budget // ref_price)
-
     max_spread = ui_values.get("spread_buy_levels", 5)
     s_step = ui_values.get("spread_buy_step", 1)
-    min_drop_pct = -50.0
 
+    # Same ladder the backtest fills against (engines.dongpa_engine.spread_ladder).
+    ladder = spread_ladder(eff_budget, ref_price, max_spread, s_step, allow_fractional)
     rows: list[dict] = []
-    if ref_qty <= 0:
-        return rows
-
-    for n in range(1, max_spread + 1):
+    for n, (step_price, _step_qty) in enumerate(ladder, start=1):
         incr = n * s_step
-        sp_price = eff_budget / (ref_qty + incr)
-
-        drop = ((sp_price / ref_price) - 1) * 100
-        if drop < min_drop_pct:
-            break
+        sp_price = float(step_price)
 
         sp_tp = sp_price * (1 + s_tp_pct / 100)
         sp_sl = sp_price * (1 - s_sl_pct / 100) if s_sl_pct > 0 else None
