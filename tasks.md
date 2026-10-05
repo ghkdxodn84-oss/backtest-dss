@@ -1,6 +1,13 @@
 # Tasks
 
 ## In Progress
+- [ ] 오더북 PiP 주문 창 (시작 2026-10-06)
+  - Document Picture-in-Picture(Chrome·Edge 데스크톱 116+). 미지원 브라우저는 버튼 숨김. 시안 비교: claude.ai/artifact/A7rFGQiDieAFGnDfA8BThw
+  - [x] A안(큰 숫자 카드 + 스프레드 묶음) 구현 (2026-10-06): `OrderPip.tsx`, LOC 주문 시트 헤더 "PIP로 띄우기" 버튼
+    - 복사 기능 없음(MTS에서 붙여넣기가 안 됨). 매도 → 매수 순, 각각 높은 가격부터. `매수 (+n주)` 스프레드는 한 장으로 묶음. 손절 주문은 LOC가 아니라 제외
+    - 진행 위치는 localStorage에 계좌·세션 날짜·주문 내용별로 저장(주문표 바뀌면 처음부터). 키보드 → / Space / ←
+    - 글자·버튼은 vh/vw 단위라 창을 키우면 같이 커지고 스크롤 없음. 오더북 화면이 언마운트되면(재계산·탭 이동) 창도 닫힘
+  - [ ] 실제 MTS 입력하면서 사용성 확인
 - [ ] 웹 뷰어 차트·주문 시트 고도화 (Spectrum UI 시장 블록 기법 참고, 우리 테마로 재구현) (시작 2026-09-23)
   - 참고: https://ui.spectrumhq.in/blocks/charts#market · 소스 github.com/arihantcodes/spectrum-ui `app/registry/charts/` (Apache-2.0)
   - Tailwind/shadcn/Recharts 도입 없이 순수 SVG + CSS로 이식. 색·폰트·직각 모서리는 기존 라임/마젠타 토큰 유지

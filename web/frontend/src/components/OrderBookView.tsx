@@ -4,15 +4,18 @@ import { DataTable } from "./DataTable";
 import { EquityChart } from "./EquityChart";
 import { LocLadder } from "./LocLadder";
 import { MetricGrid } from "./MetricGrid";
+import { OrderPipButton } from "./OrderPip";
 
 export function OrderBookView({
   orderBook,
   result,
   request,
+  accountId,
 }: {
   orderBook: OrderBookPayload;
   result: ViewerResult;
   request: BacktestRequest;
+  accountId?: string;
 }) {
   const state = orderBook.state;
   const period = `${result.meta.start_date} – ${result.meta.end_date}`;
@@ -34,7 +37,11 @@ export function OrderBookView({
         </section>
       </section>
 
-      <LocLadder orderBook={orderBook} footer={orderBook.netting_message || "모의 계산 결과 · 실제 주문은 사용자 책임"} />
+      <LocLadder
+        orderBook={orderBook}
+        footer={orderBook.netting_message || "모의 계산 결과 · 실제 주문은 사용자 책임"}
+        action={<OrderPipButton orderBook={orderBook} ticker={result.meta.target_ticker} accountId={accountId} />}
+      />
 
       <DataTable title="보유 포지션" eyebrow="OPEN TRANCHES" table={orderBook.holdings} filename={`dongpa_holdings_${result.meta.target_ticker}.csv`} limit={0} />
 

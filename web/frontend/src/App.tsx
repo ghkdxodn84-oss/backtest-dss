@@ -211,7 +211,7 @@ export default function App() {
           <StrategyStrip request={orderBookRequest ?? request} orderBook={results["order-book"]?.order_book} onSettings={() => setView("settings")} />
           <div className="page-body">
             {activeError && <div className="error-banner"><strong>REQUEST FAILED</strong><span>{activeError}</span></div>}
-            {isLoading ? <LoadingResult /> : activeResult?.order_book ? <OrderBookView orderBook={activeResult.order_book} result={activeResult} request={orderBookRequest ?? request} /> : <EmptyResult label="오더북 결과가 없습니다." onSettings={() => setView("settings")} />}
+            {isLoading ? <LoadingResult /> : activeResult?.order_book ? <OrderBookView orderBook={activeResult.order_book} result={activeResult} request={orderBookRequest ?? request} accountId={account?.id} /> : <EmptyResult label="오더북 결과가 없습니다." onSettings={() => setView("settings")} />}
             <footer className="footer"><span>DONGPA VIEWER / READ ONLY</span><span>모의 계산 결과 · 실제 주문은 사용자 책임</span></footer>
           </div>
         </main>

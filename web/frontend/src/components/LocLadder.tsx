@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { copyText } from "../clipboard";
 import type { CellValue, OrderBookPayload, TablePayload } from "../types";
@@ -104,7 +104,7 @@ function Row({
   );
 }
 
-export function LocLadder({ orderBook, footer }: { orderBook: OrderBookPayload; footer: string }) {
+export function LocLadder({ orderBook, footer, action }: { orderBook: OrderBookPayload; footer: string; action?: ReactNode }) {
   const { state } = orderBook;
   const { sells, buys } = useMemo(() => buildRows(orderBook.orders, state.prev_close), [orderBook.orders, state.prev_close]);
   const [hovered, setHovered] = useState<{ side: Side; rank: number } | null>(null);
@@ -129,6 +129,7 @@ export function LocLadder({ orderBook, footer }: { orderBook: OrderBookPayload; 
           <span className="sell">매도 {sells.length}건 · {qtyText(sellQty)}주</span>
           <span className="buy">매수 {buys.length}건 · {qtyText(buyQty)}주</span>
         </div>
+        {action}
       </header>
 
       {sells.length + buys.length === 0 ? (
