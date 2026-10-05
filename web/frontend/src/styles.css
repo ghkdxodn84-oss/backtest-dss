@@ -451,8 +451,11 @@ td.tone-muted { color: var(--muted); }
 /* PiP 주문 창 (Document Picture-in-Picture). 창 자체가 뷰포트라 vh/vw로 키우면 숫자·버튼이 같이 커지고 스크롤은 없다. */
 .pip-launch { height: 30px; padding: 0 12px; font-size: 10px; flex: none; }
 .pip-launch.active { border-color: var(--lime); color: var(--lime); }
+.pip-error { color: var(--red); font: 11px/1.4 var(--mono); }
+/* 영상 PiP의 원본 video. 화면에는 보이지 않지만 문서 안에 있어야 PiP를 요청할 수 있다 */
+.pip-video-source { position: fixed; left: 0; bottom: 0; width: 2px; height: 2px; opacity: 0; pointer-events: none; }
 .opip-root { min-width: 0; min-height: 0; height: 100vh; margin: 0; overflow: hidden; background: var(--bg); }
-.opip-stage { position: fixed; inset: 0; display: flex; flex-direction: column; gap: 3vh; padding: 4vh 4vw; font-variant-numeric: tabular-nums; }
+.opip-stage { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 3vh; padding: 4vh 4vw; font-variant-numeric: tabular-nums; }
 .opip-segs { display: flex; gap: 2px; height: max(3px, 1.6vh); flex: none; }
 .opip-segs i { flex: 1; background: var(--border); }
 .opip-segs i.sell.done { background: var(--blue); opacity: .55; }
@@ -469,7 +472,13 @@ td.tone-muted { color: var(--muted); }
 .opip-price.sell { color: var(--blue); }
 .opip-price.buy { color: var(--red); }
 .opip-qty small { margin-left: .1em; color: var(--muted); font-size: .45em; }
-.opip-note { grid-column: 1 / -1; margin-top: 2.5vh; overflow: hidden; color: var(--muted); font-size: clamp(10px, 5vh, 20px); text-overflow: ellipsis; white-space: nowrap; }
+.opip-note { grid-column: 1 / -1; margin-top: 4vh; overflow: hidden; color: var(--muted); font-size: clamp(10px, 5vh, 20px); text-overflow: ellipsis; white-space: nowrap; }
+/* 세로로 긴 창(휴대폰, 갤럭시 팝업 화면)에서는 단가와 수량을 위아래로 쌓아 크게 보여준다 */
+@media (max-aspect-ratio: 1/1) {
+  .opip-main { grid-template-columns: minmax(0, 1fr); gap: 2vh 0; }
+  .opip-price { font-size: min(14vh, 21vw); }
+  .opip-qty { font-size: min(10vh, 16vw); }
+}
 .opip-ladder { flex: 1; min-height: 0; display: grid; grid-auto-rows: minmax(0, 1fr); font-size: min(8.5vh, 7vw); }
 .opip-ladder-row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; column-gap: 4vw; min-height: 0; border-bottom: 1px solid var(--border); }
 .opip-ladder-row .opip-lbl { font-size: .7em; }
@@ -483,9 +492,13 @@ td.tone-muted { color: var(--muted); }
 .opip-back:hover:not(:disabled) { border-color: var(--muted); color: #f5f5f5; }
 .opip-back:disabled { opacity: .3; cursor: default; }
 .opip-go svg, .opip-back svg { width: 1em; height: 1em; flex: none; }
-.opip-end { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vh; padding: 4vh; text-align: center; }
+.opip-end { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4vh; padding: 4vh; text-align: center; }
 .opip-end strong { color: var(--lime); font-size: clamp(16px, 11vh, 44px); font-weight: 400; line-height: 1.1; }
 .opip-end span { color: var(--muted); font-size: clamp(11px, 5.5vh, 20px); }
+.opip-overlay { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; background: var(--bg); padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+.opip-overlay-bar { height: 44px; flex: none; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--border); color: var(--muted); font: 12px/1 var(--mono); letter-spacing: .06em; }
+.opip-overlay-bar button { height: 32px; padding: 0 12px; border: 1px solid var(--border-strong); border-radius: 0; background: transparent; color: #f5f5f5; font: inherit; cursor: pointer; }
+.opip-overlay-body { position: relative; flex: 1; min-height: 0; }
 .opip-reset { padding: .5em 1.2em; font-size: clamp(11px, 5.5vh, 20px); }
 .order-sheet-panel > footer { padding: 14px 18px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; line-height: 1.55; }
 .order-detail-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 24px; align-items: start; }

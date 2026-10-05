@@ -7,6 +7,11 @@
     - 복사 기능 없음(MTS에서 붙여넣기가 안 됨). 매도 → 매수 순, 각각 높은 가격부터. `매수 (+n주)` 스프레드는 한 장으로 묶음. 손절 주문은 LOC가 아니라 제외
     - 진행 위치는 localStorage에 계좌·세션 날짜·주문 내용별로 저장(주문표 바뀌면 처음부터). 키보드 → / Space / ←
     - 글자·버튼은 vh/vw 단위라 창을 키우면 같이 커지고 스크롤 없음. 오더북 화면이 언마운트되면(재계산·탭 이동) 창도 닫힘
+  - [x] 브라우저별 방식 자동 선택 (2026-10-06): 브라우저 이름이 아니라 기능 감지로 고름
+    - Document PiP 있음 → 기존 PiP / 영상 PiP + `canvas.captureStream` 있음 → 카드를 canvas에 그려 영상 PiP, 시스템 이전·다음 트랙 버튼(Media Session)으로 넘김 / 둘 다 없음(삼성 인터넷, iOS Safari) → "주문 넘기기" 전체 화면, 갤럭시 팝업·분할 화면으로 MTS 옆에 띄움
+    - 카드: "LOC 단가"·"수량" 글자 제거, 단가 앞 `$`, 설명 줄 자리를 항상 남겨 매수·매도 숫자 위치 일치. 세로로 긴 창은 단가·수량을 위아래로 쌓음
+    - `src/pip/steps.ts`(단계 데이터), `src/pip/drawCard.ts`(영상 PiP canvas). 영상 PiP 시안: claude.ai/artifact/1geU3HAy3DX6BGY1fncip6
+  - [ ] 안드로이드 Chrome에서 영상 PiP 실제 동작 확인 (API는 "부분 지원")
   - [ ] 실제 MTS 입력하면서 사용성 확인
 - [ ] 웹 뷰어 차트·주문 시트 고도화 (Spectrum UI 시장 블록 기법 참고, 우리 테마로 재구현) (시작 2026-09-23)
   - 참고: https://ui.spectrumhq.in/blocks/charts#market · 소스 github.com/arihantcodes/spectrum-ui `app/registry/charts/` (Apache-2.0)

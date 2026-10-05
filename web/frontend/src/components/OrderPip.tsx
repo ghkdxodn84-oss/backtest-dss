@@ -1,10 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import type { CellValue, OrderBookPayload } from "../types";
+import { drawCard, VIDEO_CARD_SIZE } from "../pip/drawCard";
+import { buildSteps, ladderLabel, orderCount, priceText, qtyText, stepSide, type PipStep } from "../pip/steps";
+import type { OrderBookPayload } from "../types";
 
-// Document Picture-in-Picture: 항상 위에 떠 있는 창에 주문을 한 건씩 띄워 MTS에 보고 따라 입력한다.
-// Chrome·Edge 데스크톱(116+)만 지원하므로 나머지 브라우저에서는 버튼을 숨긴다.
+// 주문을 한 건씩 띄워 MTS에 보고 따라 입력하는 창. 브라우저가 가진 기능에 따라 방식을 고른다.
+// - document: Document Picture-in-Picture (Chrome·Edge 데스크톱). 창 안에 HTML과 버튼을 그대로 넣는다
+// - video: 카드를 canvas에 그려 영상 PiP로 띄운다 (안드로이드 Chrome 등). 넘기기는 시스템 이전·다음 트랙 버튼
+// - overlay: 둘 다 없으면(삼성 인터넷, iOS Safari) 페이지 전체에 띄우고 OS 팝업·분할 화면으로 MTS 옆에 둔다
+type PipMode = "document" | "video" | "overlay";
+
 interface DocumentPictureInPicture {
   requestWindow(options?: { width?: number; height?: number }): Promise<Window>;
   window: Window | null;
@@ -16,50 +22,13 @@ declare global {
   }
 }
 
-type Side = "sell" | "buy";
-
-interface PipOrder {
-  side: Side;
-  label: string;
-  price: number;
-  qty: number;
-  note: string;
-}
-
-/** 한 번에 보여줄 단위. 1주짜리 스프레드 매수는 한 장으로 묶는다. */
-type PipStep = { kind: "single"; order: PipOrder } | { kind: "ladder"; orders: PipOrder[] };
-
 const PIP_SIZE = { width: 400, height: 300 };
 
-function num(value: CellValue) {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
-}
-
-function buildSteps(orders: OrderBookPayload["orders"]): PipStep[] {
-  const parsed = orders.rows.flatMap((row) => {
-    const kind = String(row["구분"] ?? "");
-    const price = num(row["주문가"]);
-    const qty = num(row["수량"]);
-    if (price == null || qty == null || qty <= 0) return [];
-    const side: Side = kind.startsWith("매도") ? "sell" : "buy";
-    // "매도 (TP)" → "매도 TP", "매수 (+3주)" → "매수 +3주"
-    const label = kind.replace(/\s*\((.+)\)/, " $1");
-    // 매수 근거의 "→ TP: $x, SL: $y"는 입력과 무관해서 빼고, 현금 부족·퉁치기 같은 나머지 문구만 남긴다
-    const note = String(row["비고"] ?? "").split(" | ").filter((part) => !part.startsWith("→ TP")).join(" | ");
-    return [{ side, label, price, qty, note, spread: /^매수 \(\+/.test(kind) }];
-  });
-  // MTS 입력 순서: 매도 → 매수, 각각 높은 가격부터
-  const byPrice = (a: PipOrder, b: PipOrder) => b.price - a.price;
-  const sells = parsed.filter((o) => o.side === "sell").sort(byPrice);
-  const buys = parsed.filter((o) => o.side === "buy" && !o.spread).sort(byPrice);
-  const spreads = parsed.filter((o) => o.spread).sort(byPrice);
-  const steps: PipStep[] = [...sells, ...buys].map((order) => ({ kind: "single", order }));
-  if (spreads.length) steps.push({ kind: "ladder", orders: spreads });
-  return steps;
-}
-
-function stepSide(step: PipStep): Side {
-  return step.kind === "single" ? step.order.side : "buy";
+function detectMode(): PipMode {
+  if ("documentPictureInPicture" in window) return "document";
+  const videoPip = document.pictureInPictureEnabled && typeof HTMLVideoElement.prototype.requestPictureInPicture === "function";
+  if (videoPip && typeof HTMLCanvasElement.prototype.captureStream === "function") return "video";
+  return "overlay";
 }
 
 function loadIndex(key: string) {
@@ -96,8 +65,6 @@ function copyStyles(target: Document) {
   }
 }
 
-const qtyText = (value: number) => value.toLocaleString("ko-KR", { maximumFractionDigits: 4 });
-
 function Chevron({ dir }: { dir: "prev" | "next" }) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden>
@@ -121,11 +88,10 @@ function PipStepper({
     return <div className="opip-end"><strong>주문 없음</strong><span>오늘 넣을 LOC 주문이 없습니다</span></div>;
   }
   if (index >= steps.length) {
-    const count = steps.reduce((sum, step) => sum + (step.kind === "single" ? 1 : step.orders.length), 0);
     return (
       <div className="opip-end">
         <strong>오늘 주문 끝</strong>
-        <span>{count}건을 모두 넣었습니다</span>
+        <span>{orderCount(steps)}건을 모두 넣었습니다</span>
         <button type="button" className="opip-back opip-reset" onClick={onReset}>처음부터</button>
       </div>
     );
@@ -147,18 +113,17 @@ function PipStepper({
 
       {step.kind === "single" ? (
         <div className="opip-main">
-          <span className="opip-lbl">LOC 단가</span>
-          <span className="opip-lbl">수량</span>
-          <span className={`opip-price ${step.order.side}`}>{step.order.price.toFixed(2)}</span>
+          <span className={`opip-price ${step.order.side}`}>{priceText(step.order.price)}</span>
           <span className="opip-qty">{qtyText(step.order.qty)}<small>주</small></span>
-          <span className="opip-note">{step.order.note || " "}</span>
+          {/* 설명이 없어도 줄을 남겨 매수·매도의 숫자 위치를 맞춘다 */}
+          <span className="opip-note">{step.order.note || " "}</span>
         </div>
       ) : (
         <div className="opip-ladder">
           {step.orders.map((order, k) => (
             <div key={k} className="opip-ladder-row">
-              <span className="opip-lbl">{order.label.replace(/^매수\s*/, "")}</span>
-              <span className="opip-ladder-price">{order.price.toFixed(2)}</span>
+              <span className="opip-lbl">{ladderLabel(order)}</span>
+              <span className="opip-ladder-price">{priceText(order.price)}</span>
               <span className="opip-ladder-qty">× {qtyText(order.qty)}주</span>
             </div>
           ))}
@@ -184,8 +149,13 @@ export function OrderPipButton({
   ticker: string;
   accountId?: string;
 }) {
-  const supported = typeof window !== "undefined" && "documentPictureInPicture" in window;
+  const [mode] = useState(detectMode);
   const [pipWindow, setPipWindow] = useState<Window | null>(null);
+  const [videoOpen, setVideoOpen] = useState(false);
+  const [overlay, setOverlay] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const steps = useMemo(() => buildSteps(orderBook.orders), [orderBook.orders]);
 
   // 진행 위치는 계좌·세션 날짜·주문 내용별로 저장한다. 주문표가 바뀌면 처음부터 다시 시작한다.
@@ -204,9 +174,13 @@ export function OrderPipButton({
   }, [progressKey, steps.length]);
 
   const move = useCallback((delta: number) => setIndex(index + delta), [index, setIndex]);
+  // 미디어 세션 핸들러는 한 번만 등록하므로 최신 move를 ref로 넘긴다
+  const moveRef = useRef(move);
+  useEffect(() => { moveRef.current = move; }, [move]);
 
   useEffect(() => {
-    if (!pipWindow) return;
+    const target = pipWindow ?? (overlay ? window : null);
+    if (!target) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "ArrowRight" || event.key === " ") {
         event.preventDefault();
@@ -214,16 +188,107 @@ export function OrderPipButton({
       } else if (event.key === "ArrowLeft") {
         event.preventDefault();
         move(-1);
+      } else if (event.key === "Escape" && !pipWindow) {
+        setOverlay(false);
       }
     };
-    pipWindow.addEventListener("keydown", onKey);
-    return () => pipWindow.removeEventListener("keydown", onKey);
-  }, [pipWindow, move]);
+    target.addEventListener("keydown", onKey);
+    return () => target.removeEventListener("keydown", onKey);
+  }, [pipWindow, overlay, move]);
+
+  // 전체 화면 모드에서는 뒤 페이지가 스크롤되지 않게 막는다.
+  useEffect(() => {
+    if (!overlay) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [overlay]);
 
   // 오더북 화면이 사라지면(다시 계산, 다른 탭) PiP 창도 닫는다.
   useEffect(() => () => pipWindow?.close(), [pipWindow]);
+  useEffect(() => {
+    const video = videoRef.current;
+    return () => {
+      if (video && document.pictureInPictureElement === video) void document.exitPictureInPicture();
+    };
+  }, []);
 
-  const open = async () => {
+  // --- 영상 PiP ---
+  const redraw = useCallback(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (ctx) drawCard(ctx, steps, index);
+  }, [steps, index]);
+
+  useEffect(() => {
+    if (mode !== "video") return;
+    // canvas 글꼴이 대체 글꼴로 그려지지 않게 미리 받아 둔다
+    void document.fonts?.load("40px Juache").then(redraw, () => undefined);
+  }, [mode, redraw]);
+
+  useEffect(() => {
+    if (!videoOpen) return;
+    redraw();
+    // 일부 브라우저는 canvas가 다시 그려질 때만 프레임을 보내므로 주기적으로 다시 그린다
+    const timer = window.setInterval(redraw, 500);
+    return () => window.clearInterval(timer);
+  }, [videoOpen, redraw]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (mode !== "video" || !video) return;
+    const onLeave = () => {
+      setVideoOpen(false);
+      video.pause();
+    };
+    video.addEventListener("leavepictureinpicture", onLeave);
+    return () => video.removeEventListener("leavepictureinpicture", onLeave);
+  }, [mode]);
+
+  useEffect(() => {
+    if (!videoOpen || !("mediaSession" in navigator)) return;
+    const session = navigator.mediaSession;
+    session.metadata = new MediaMetadata({ title: `${ticker} LOC 주문`, artist: "DONGPA" });
+    session.setActionHandler("previoustrack", () => moveRef.current(-1));
+    session.setActionHandler("nexttrack", () => moveRef.current(1));
+    return () => {
+      session.setActionHandler("previoustrack", null);
+      session.setActionHandler("nexttrack", null);
+      session.metadata = null;
+    };
+  }, [videoOpen, ticker]);
+
+  const openVideo = async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    if (document.pictureInPictureElement === video) {
+      await document.exitPictureInPicture();
+      return;
+    }
+    try {
+      let canvas = canvasRef.current;
+      if (!canvas) {
+        canvas = document.createElement("canvas");
+        canvas.width = VIDEO_CARD_SIZE.width;
+        canvas.height = VIDEO_CARD_SIZE.height;
+        canvasRef.current = canvas;
+      }
+      const ctx = canvas.getContext("2d");
+      if (ctx) drawCard(ctx, steps, index);
+      if (!video.srcObject) video.srcObject = canvas.captureStream(15);
+      await video.play();
+      if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+        await new Promise((resolve) => video.addEventListener("loadedmetadata", resolve, { once: true }));
+      }
+      await video.requestPictureInPicture();
+      setError(null);
+      setVideoOpen(true);
+    } catch (reason) {
+      setError(`PiP를 열지 못했습니다: ${reason instanceof Error ? reason.message : String(reason)}`);
+    }
+  };
+
+  // --- Document PiP ---
+  const openDocument = async () => {
     const api = window.documentPictureInPicture;
     if (!api) return;
     if (pipWindow) {
@@ -238,17 +303,52 @@ export function OrderPipButton({
     setPipWindow(win);
   };
 
-  if (!supported) return null;
+  const stepper = <PipStepper steps={steps} index={index} onMove={move} onReset={() => setIndex(0)} />;
+
+  if (mode === "overlay") {
+    return (
+      <>
+        <button type="button" className="button pip-launch" onClick={() => setOverlay(true)} title="주문을 한 건씩 화면 가득 띄웁니다">
+          주문 넘기기
+        </button>
+        {overlay && createPortal(
+          <div className="opip-overlay" role="dialog" aria-label={`${ticker} LOC 주문`}>
+            <header className="opip-overlay-bar">
+              <span>{ticker} · LOC 주문</span>
+              <button type="button" onClick={() => setOverlay(false)}>닫기</button>
+            </header>
+            <div className="opip-overlay-body">{stepper}</div>
+          </div>,
+          document.body,
+        )}
+      </>
+    );
+  }
+
+  if (mode === "video") {
+    return (
+      <>
+        <button type="button" className={`button pip-launch${videoOpen ? " active" : ""}`} onClick={openVideo} title="주문을 영상 PiP 창에 띄웁니다. 창의 이전·다음 버튼으로 넘깁니다">
+          {videoOpen ? "PIP 닫기" : "PIP로 띄우기"}
+        </button>
+        {error && <span className="pip-error">{error}</span>}
+        <video
+          ref={videoRef}
+          className="pip-video-source"
+          muted
+          playsInline
+          aria-hidden
+        />
+      </>
+    );
+  }
 
   return (
     <>
-      <button type="button" className={`button pip-launch${pipWindow ? " active" : ""}`} onClick={open} title="항상 위에 떠 있는 작은 창에 주문을 한 건씩 띄웁니다">
+      <button type="button" className={`button pip-launch${pipWindow ? " active" : ""}`} onClick={openDocument} title="항상 위에 떠 있는 작은 창에 주문을 한 건씩 띄웁니다">
         {pipWindow ? "PIP 닫기" : "PIP로 띄우기"}
       </button>
-      {pipWindow && createPortal(
-        <PipStepper steps={steps} index={index} onMove={move} onReset={() => setIndex(0)} />,
-        pipWindow.document.body,
-      )}
+      {pipWindow && createPortal(stepper, pipWindow.document.body)}
     </>
   );
 }
