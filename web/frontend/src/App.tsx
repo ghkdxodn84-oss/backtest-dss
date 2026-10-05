@@ -32,6 +32,9 @@ function withAccount(request: BacktestRequest, account?: Account): BacktestReque
   return {
     ...request,
     start_date: account.start_date,
+    // The server's "today" is UTC, so an account starting today (KST) can be
+    // ahead of it; the order book then shows that account's first orders.
+    end_date: request.end_date < account.start_date ? account.start_date : request.end_date,
     initial_cash: account.initial_cash,
     spread_buy_levels: account.spread_buy_levels,
     spread_buy_step: account.spread_buy_step,
