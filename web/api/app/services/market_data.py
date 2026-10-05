@@ -23,6 +23,14 @@ DEFAULT_DATA_SOURCE = "https://raw.githubusercontent.com/olion500/backtest-dss/m
 MAX_DATASET_AGE_DAYS = 7
 
 
+MARKET_TZ = ZoneInfo("America/New_York")
+
+
+def market_today() -> date:
+    """Today's US session date: every date in the data, accounts and journal is a NY session date."""
+    return datetime.now(MARKET_TZ).date()
+
+
 class MarketDataError(RuntimeError):
     """Raised when a requested price series is unavailable."""
 
@@ -86,10 +94,10 @@ class MarketDataClient:
             if frame.empty or "Close" not in frame.columns:
                 return None
             self._store(key, frame)
-        latest_needed = min(end - timedelta(days=1), date.today())
+        latest_needed = min(end - timedelta(days=1), market_today())
         if frame.index.max().date() < latest_needed:
             frame = self._extend_from_yahoo(ticker, frame, end)
-        if frame.index.max().date() < date.today() - timedelta(days=MAX_DATASET_AGE_DAYS):
+        if frame.index.max().date() < market_today() - timedelta(days=MAX_DATASET_AGE_DAYS):
             return None
         sliced = frame[(frame.index >= pd.Timestamp(start)) & (frame.index < pd.Timestamp(end))]
         return sliced.copy(deep=True) if not sliced.empty else None
@@ -122,10 +130,7 @@ class MarketDataClient:
         """Drop today's in-progress bar while the US session is still open,
         so the newest close is always an official close (matches the
         Streamlit pages' market-hours cutoff)."""
-        try:
-            now_ny = datetime.now(ZoneInfo("America/New_York"))
-        except Exception:
-            return frame
+        now_ny = datetime.now(MARKET_TZ)
         if now_ny.hour >= 16:
             return frame
         return frame[frame.index < pd.Timestamp(now_ny.date())]

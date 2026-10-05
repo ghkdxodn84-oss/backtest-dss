@@ -33,7 +33,7 @@ from engines.config_store import load_strategy
 from web.api.app.schemas import BacktestRequest, ModeSettings, StrategySettings
 from web.api.app.serializers import dataframe_payload, json_value, records_payload
 from web.api.app.services.accounts import load_accounts
-from web.api.app.services.market_data import MarketDataClient, market_data_client
+from web.api.app.services.market_data import MarketDataClient, market_data_client, market_today
 
 
 LOOKBACK_DAYS = 1000
@@ -325,7 +325,7 @@ def run_order_book_view(
 
 def default_request() -> BacktestRequest:
     """Shared strategy + the first account (the web viewer's starting settings)."""
-    today = date.today()
+    today = market_today()
     raw = load_strategy()
     accounts = load_accounts()
     account = accounts[0] if accounts else None
