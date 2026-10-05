@@ -42,3 +42,17 @@ def test_strategy_files_lists_strategy_then_presets(tmp_path):
     save_strategy({"target": "X"}, preset_path("old", presets))
     assert strategy_files(presets, strategy) == [strategy, presets / "old.json"]
     assert preset_path("new.json", presets) == presets / "new.json"
+
+
+def test_accounts_sort_by_order_then_file_name(tmp_path):
+    (tmp_path / "a.json").write_text('{"name": "A"}')
+    (tmp_path / "b.json").write_text('{"name": "B", "order": 2}')
+    (tmp_path / "c.json").write_text('{"name": "C", "order": 1}')
+    assert [a["id"] for a in load_accounts(tmp_path)] == ["c", "b", "a"]
+    assert find_account(None, tmp_path)["id"] == "c"
+
+
+def test_save_account_keeps_order(tmp_path):
+    (tmp_path / "sub.json").write_text('{"name": "서브", "order": 3}')
+    save_account("sub", {"init_cash": 2000}, tmp_path)
+    assert read_json(tmp_path / "sub.json")["order"] == 3

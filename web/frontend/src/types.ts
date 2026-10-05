@@ -46,6 +46,7 @@ export interface BacktestRequest {
 export interface Account {
   id: string;
   name: string;
+  order: number | null;
   start_date: string;
   initial_cash: number;
   spread_buy_levels: number;

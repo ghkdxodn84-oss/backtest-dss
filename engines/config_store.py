@@ -3,7 +3,7 @@
 Layout::
 
     config/strategy.json         shared strategy (all accounts trade it)
-    config/accounts/<id>.json    per-account: name + ACCOUNT_KEYS (gitignored)
+    config/accounts/<id>.json    per-account: name, order + ACCOUNT_KEYS (gitignored)
     config/presets/<name>.json   saved strategy candidates (backups, Optuna results)
 
 Strategy files never hold account keys and account files hold nothing else,
@@ -52,21 +52,28 @@ def save_strategy(data: dict, path: Path = STRATEGY_PATH) -> None:
     write_json(path, strategy_only(data))
 
 
-def load_accounts(accounts_dir: Path = ACCOUNTS_DIR) -> list[dict]:
-    """Accounts sorted by file name; each has ``id``, ``name`` and every ACCOUNT_KEY.
+def _account_order(raw: dict) -> int | None:
+    order = raw.get("order")
+    return order if isinstance(order, int) and not isinstance(order, bool) else None
 
-    With no account files there is a single default account, so callers never
-    have to handle an empty list.
+
+def load_accounts(accounts_dir: Path = ACCOUNTS_DIR) -> list[dict]:
+    """Accounts sorted by ``order``, then file name; each has ``id``, ``name``, ``order`` and every ACCOUNT_KEY.
+
+    Accounts without an ``order`` come after the ordered ones. With no account
+    files there is a single default account, so callers never have to handle
+    an empty list.
     """
     accounts = []
     paths = sorted(Path(accounts_dir).glob("*.json")) if Path(accounts_dir).is_dir() else []
     for path in paths:
         raw = read_json(path)
-        account = {"id": path.stem, "name": raw.get("name") or path.stem}
+        account = {"id": path.stem, "name": raw.get("name") or path.stem, "order": _account_order(raw)}
         account.update({key: raw.get(key, default) for key, default in ACCOUNT_DEFAULTS.items()})
         accounts.append(account)
+    accounts.sort(key=lambda account: (account["order"] is None, account["order"] or 0))
     if not accounts:
-        accounts.append({"id": DEFAULT_ACCOUNT_ID, "name": "기본", **ACCOUNT_DEFAULTS})
+        accounts.append({"id": DEFAULT_ACCOUNT_ID, "name": "기본", "order": None, **ACCOUNT_DEFAULTS})
     return accounts
 
 
@@ -77,10 +84,13 @@ def find_account(account_id: str | None, accounts_dir: Path = ACCOUNTS_DIR) -> d
 
 
 def save_account(account_id: str, data: dict, accounts_dir: Path = ACCOUNTS_DIR) -> Path:
-    """Write the account keys of ``data``; the existing name is kept unless ``data`` has one."""
+    """Write the account keys of ``data``; the existing name and order are kept unless ``data`` has them."""
     path = Path(accounts_dir) / f"{account_id}.json"
     current = read_json(path)
     account = {"name": data.get("name") or current.get("name") or account_id}
+    order = _account_order(data) if _account_order(data) is not None else _account_order(current)
+    if order is not None:
+        account["order"] = order
     account.update({key: data.get(key, current.get(key)) for key in ACCOUNT_KEYS})
     write_json(path, account)
     return path

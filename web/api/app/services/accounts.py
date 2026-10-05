@@ -17,6 +17,7 @@ from engines.config_store import ACCOUNTS_DIR, load_accounts as read_accounts
 class Account(BaseModel):
     id: str
     name: str = Field(min_length=1, max_length=40)
+    order: int | None = None
     start_date: date
     initial_cash: float = Field(gt=0, le=100_000_000)
     spread_buy_levels: int = Field(default=5, ge=0, le=20)
@@ -31,6 +32,7 @@ def load_accounts(accounts_dir: Path = ACCOUNTS_DIR) -> list[Account]:
             accounts.append(Account(
                 id=raw["id"],
                 name=raw["name"],
+                order=raw["order"],
                 start_date=raw["start_date"] or fallback_start,
                 initial_cash=raw["init_cash"],
                 spread_buy_levels=raw["spread_buy_levels"],

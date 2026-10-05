@@ -39,7 +39,7 @@ def _request() -> BacktestRequest:
 
 
 def _provider(ticker: str, start: date, end: date) -> pd.DataFrame:
-    periods = 100 if ticker == "TEST" else 800
+    periods = 100 if ticker == "TEST" else 850
     first_price = 50 if ticker == "TEST" else 400
     values = [first_price * (1 + 0.001 * index) for index in range(periods)]
     first_date = "2024-01-02" if ticker == "TEST" else "2021-04-07"
@@ -74,6 +74,22 @@ def test_order_book_view_returns_read_only_preview():
     assert "orders" in payload["order_book"]
 
 
+def test_order_book_view_for_account_without_a_session_yet():
+    # TEST has 100 sessions from 2024-01-02, so 2024-05-21 is the session after the last close.
+    request = _request().model_copy(update={"start_date": date(2024, 5, 21), "end_date": date(2024, 5, 21)})
+
+    payload = run_order_book_view(request, provider=_provider)
+
+    state = payload["order_book"]["state"]
+    assert state["last_date"] == "2024-05-20"
+    assert state["current_cash"] == 10_000
+    assert state["current_position_qty"] == 0
+    assert state["tranche_budget"] == 10_000 / 7
+    assert payload["order_book"]["orders"]["rows"]
+    assert payload["order_book"]["holdings"]["rows"] == []
+    assert payload["journal"]["rows"] == [] and payload["equity"] == []
+
+
 def test_health_route():
     assert api_main.health() == {"status": "ok"}
 
@@ -90,7 +106,7 @@ def test_backtest_route_uses_validated_payload(monkeypatch):
 
 def test_schema_rejects_invalid_period():
     payload = _request().model_dump(mode="json")
-    payload["start_date"] = payload["end_date"]
+    payload["start_date"], payload["end_date"] = payload["end_date"], payload["start_date"]
     try:
         BacktestRequest.model_validate(payload)
     except ValueError as exc:

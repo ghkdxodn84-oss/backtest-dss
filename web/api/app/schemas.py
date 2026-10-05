@@ -83,8 +83,8 @@ class BacktestRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_period(self) -> BacktestRequest:
-        if self.start_date >= self.end_date:
-            raise ValueError("start_date는 end_date보다 이전이어야 합니다.")
+        if self.start_date > self.end_date:
+            raise ValueError("start_date는 end_date보다 늦을 수 없습니다.")
         if (self.end_date - self.start_date).days > 15 * 366:
             raise ValueError("공개 viewer의 최대 조회 기간은 15년입니다.")
         return self

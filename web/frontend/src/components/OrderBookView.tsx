@@ -49,9 +49,13 @@ export function OrderBookView({
         </div>
       </section>
 
-      <MetricGrid result={result} period={period} />
-      <EquityChart points={result.equity} modeBands={result.mode_bands} logScale={result.meta.log_scale} target={result.meta.target_ticker} />
-      <DailyLog table={result.journal} filename={`dongpa_daily_${result.meta.target_ticker}.csv`} />
+      {result.equity.length ? (
+        <>
+          <MetricGrid result={result} period={period} />
+          <EquityChart points={result.equity} modeBands={result.mode_bands} logScale={result.meta.log_scale} target={result.meta.target_ticker} />
+          <DailyLog table={result.journal} filename={`dongpa_daily_${result.meta.target_ticker}.csv`} />
+        </>
+      ) : <div className="compact-empty">{result.meta.start_date} 시작 // 아직 거래일이 없어 첫 주문만 표시합니다.</div>}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, timedelta
 from typing import Callable
 
@@ -22,6 +22,7 @@ from engines.dongpa_engine import (
     summarize,
 )
 from engines.order_book_engine import (
+    BacktestState,
     apply_netting,
     build_holdings,
     build_order_sheet,
@@ -205,18 +206,60 @@ def _order_ui_values(request: BacktestRequest) -> dict:
     }
 
 
+def _seed_sessions(request: BacktestRequest, provider: PriceProvider) -> tuple[date, date] | None:
+    """The last two sessions before ``start_date`` when the account has no session yet, else None.
+
+    A new account whose start date has no close yet still needs its first order
+    sheet: it is built from the previous session's close with untouched cash.
+    Two sessions, because the engine's first session only seeds the previous close.
+    """
+    raw = provider(request.strategy.target_ticker, request.start_date - timedelta(days=14), request.end_date + timedelta(days=1))
+    sessions = normalize_ohlcv(raw).index
+    sessions = sessions[sessions <= pd.Timestamp(request.end_date)]
+    if (sessions >= pd.Timestamp(request.start_date)).any():
+        return None
+    before = sessions[sessions < pd.Timestamp(request.start_date)]
+    return (before[-2].date(), before[-1].date()) if len(before) >= 2 else None
+
+
+def _fresh_account(request: BacktestRequest, execution: Execution, state: BacktestState) -> tuple[Execution, BacktestState]:
+    """Drop whatever the seed session traded: the account starts flat with its initial cash."""
+    mode = request.strategy.offense if state.current_mode == "offense" else request.strategy.defense
+    state = replace(
+        state,
+        current_cash=request.initial_cash,
+        current_position_qty=0,
+        tranche_budget=request.initial_cash / max(1, mode.slices),
+    )
+    empty = BacktestResult(
+        equity=pd.Series(dtype=float),
+        journal=pd.DataFrame(),
+        trade_log=pd.DataFrame(),
+        cash_end=request.initial_cash,
+        open_positions=0,
+    )
+    return replace(execution, result=empty), state
+
+
 def run_order_book_view(
     request: BacktestRequest,
     provider: PriceProvider | None = None,
 ) -> dict:
     selected_provider = provider or market_data_client.download
-    execution = _execute(request, selected_provider, include_indicators=True)
+    seed = _seed_sessions(request, selected_provider)
+    run_request = request
+    if seed is not None:
+        run_request = request.model_copy(update={"start_date": seed[0], "end_date": seed[1]})
+    execution = _execute(run_request, selected_provider, include_indicators=True)
     result = execution.result
     if result.journal.empty or execution.indicators is None:
         raise ValueError("주문 시트를 만들 거래 기록이 없습니다.")
 
     ui_values = _order_ui_values(request)
     state = extract_state(result.journal, execution.indicators, ui_values, request.initial_cash)
+    if seed is not None:
+        execution, state = _fresh_account(request, execution, state)
+        result = execution.result
     if result.trade_log.empty or "상태" not in result.trade_log:
         open_trades = pd.DataFrame()
     else:
